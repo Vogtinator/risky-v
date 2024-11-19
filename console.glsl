@@ -24,10 +24,10 @@ uniform sampler2D font;
 
 layout(location = 0) out vec4 fragColor;
 
-uint readByte(uint addr)
+uint readByteRaw(uint addr)
 {
     uint offset = addr / 4u;
-    ivec2 mem_off = ivec2(offset / MEMORY_STRIDE, offset % MEMORY_STRIDE);
+    ivec2 mem_off = ivec2(offset % MEMORY_STRIDE, offset / MEMORY_STRIDE);
     uint byte = addr % 4u;
     return (imageLoad(memory, mem_off).x >> (8u * byte)) & 0xFFu;
 }
@@ -49,7 +49,7 @@ void main()
 
     // Load the character value from the console memory
     uint char_idx = char_pos.x + char_pos.y * CONSOLE_WIDTH;
-    uint char_val = readByte(char_idx);
+    uint char_val = readByteRaw(char_idx);
 
     fragColor = texelFetch(font, ivec2(char_val * CHAR_WIDTH + uint(char_off.x), uint(char_off.y)), 0);
     fragColor *= vec4(vec3(0.8), 1);

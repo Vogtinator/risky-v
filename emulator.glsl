@@ -31,6 +31,6 @@ void writeRaw(uint addr, uint value)
 
 void main()
 {
-    writeRaw(1u, readRaw(0u));
+    writeRaw(4u, readRaw(0u));
     writeRaw(0u, 0x33323130u);
 }
