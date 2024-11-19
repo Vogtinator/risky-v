@@ -18,7 +18,7 @@ function loadShader(gl, type, source) {
 
 function initShaderProgram(gl, vsSource, fsSource) {
   const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fragmentShader = loadShader(gl, gl.COMPUTE_SHADER, fsSource);
+  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
   // Create the shader program
   const shaderProgram = gl.createProgram();

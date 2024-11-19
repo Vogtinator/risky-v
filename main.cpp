@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 #include <format>
+#include <print>
 #include <stdexcept>
+#include <cstring>
 
 auto loadFile(std::string path)
 {
@@ -66,7 +68,8 @@ void checkCall()
 {
     const int err = glGetError();
     if (err != GL_NO_ERROR)
-        throw std::runtime_error(std::format("Got error {}", err));
+        //throw std::runtime_error(std::format("Got error {}", err));
+        std::print("Got error {}\n", err);
 }
 
 int main(int argc, char *argv[])
@@ -96,6 +99,10 @@ try {
 
     GLint progamConsole = createProgram(loadFile("vertex.glsl"), loadFile("console.glsl"));
     GLint uniformFont = glGetUniformLocation(progamConsole, "font");
+    checkCall();
+    GLint uniformMemory = glGetUniformLocation(progamConsole, "memory");
+    checkCall();
+    std::print("Font at {} memory at {}\n", uniformFont, uniformMemory);
 
     // Create the console font texture
     GLuint textureFont = 0;
@@ -104,8 +111,29 @@ try {
     auto textureFontData = loadFile("consolefont.rgba");
     glBindTexture(GL_TEXTURE_2D, textureFont);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 3072, 18, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureFontData.data());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Create the memory "texture"
+    GLuint textureMemory = 0;
+    glGenTextures(1, &textureMemory);
+    checkCall();
+    const GLint memWidth = 1024, memHeight = 1024;
+    {
+        std::vector<GLuint> memContent(memWidth * memHeight);
+        memContent[0] = 'M';
+        memset(memContent.data(), 0x30, memContent.size() * 4);
+
+        glBindTexture(GL_TEXTURE_2D, textureMemory);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, memWidth, memHeight);
+        checkCall();
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, memWidth, memHeight, GL_RED_INTEGER, GL_UNSIGNED_INT, memContent.data());
+        checkCall();
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
     // Two triangles to fill the screen
     const GLfloat pos[4*2] = {
@@ -138,7 +166,11 @@ try {
         checkCall();
 
         glActiveTexture(GL_TEXTURE0);
-        //glUniform1i(uniformFont, textureFont);
+        checkCall();
+        glBindTexture(GL_TEXTURE_2D, textureFont);
+        checkCall();
+
+        glBindImageTexture(uniformMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
         checkCall();
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);

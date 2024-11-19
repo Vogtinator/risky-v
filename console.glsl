@@ -16,11 +16,11 @@ uniform layout(r32ui) uimage2D memory;
 
 #define FONT_TEX_WIDTH 3072
 #define FONT_TEX_HEIGHT 18
-// 307 characters in a row
-#define CHAR_WIDTH uint(3072/307)
+// 256 characters in a row
+#define CHAR_WIDTH uint(3072/256)
 #define CHAR_HEIGHT FONT_TEX_HEIGHT
 uvec2 char_size = uvec2(CHAR_WIDTH, CHAR_HEIGHT);
-layout(binding = 0) uniform sampler2D font;
+uniform sampler2D font;
 
 layout(location = 0) out vec4 fragColor;
 
@@ -28,8 +28,8 @@ uint readByte(uint addr)
 {
     uint offset = addr / 4u;
     ivec2 mem_off = ivec2(offset / MEMORY_STRIDE, offset % MEMORY_STRIDE);
-    uint byte = addr - (offset * 4u);
-    return imageLoad(memory, mem_off).x >> (8u * byte);
+    uint byte = addr % 4u;
+    return (imageLoad(memory, mem_off).x >> (8u * byte)) & 0xFFu;
 }
 
 void main()
@@ -50,8 +50,7 @@ void main()
     // Load the character value from the console memory
     uint char_idx = char_pos.x + char_pos.y * CONSOLE_WIDTH;
     uint char_val = readByte(char_idx);
-    char_val = char_idx;
 
-    fragColor = texture(font, (vec2(float(char_val * CHAR_WIDTH), 0.0) + char_off) / vec2(FONT_TEX_WIDTH, FONT_TEX_HEIGHT));
+    fragColor = texelFetch(font, ivec2(char_val * CHAR_WIDTH + uint(char_off.x), uint(char_off.y)), 0);
     fragColor *= vec4(vec3(0.8), 1);
 }
