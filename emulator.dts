@@ -12,9 +12,9 @@
 			reg = <0>;
 			device_type = "cpu";
 			compatible = "riscv";
-			riscv,isa = "rv32ia";
+			riscv,isa = "rv32i";
 			riscv,isa-base = "rv32i";
-			riscv,isa-extensions = "i", "a";
+			riscv,isa-extensions = "i"
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
