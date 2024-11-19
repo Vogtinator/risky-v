@@ -1,4 +1,5 @@
 .cache/
 main
 *.o
+*.rgba
 compile_commands.json

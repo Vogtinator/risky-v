@@ -11,7 +11,7 @@ auto loadFile(std::string path)
 {
     FILE *f = fopen(path.c_str(), "rb");
     if (!f)
-        throw std::runtime_error("File does not exist");
+        throw std::runtime_error(std::format("Failed to open {}", path));
 
     fseek(f, 0, SEEK_END);
     std::vector<char> ret(ftell(f) + 1);
@@ -94,10 +94,20 @@ try {
 
     gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress);
 
-    GLint prog = createProgram(loadFile("vertex.glsl"), loadFile("console.glsl"));
+    GLint progamConsole = createProgram(loadFile("vertex.glsl"), loadFile("console.glsl"));
+    GLint uniformFont = glGetUniformLocation(progamConsole, "font");
 
-    glUseProgram(prog);
+    // Create the console font texture
+    GLuint textureFont = 0;
+    glGenTextures(1, &textureFont);
+    checkCall();
+    auto textureFontData = loadFile("consolefont.rgba");
+    glBindTexture(GL_TEXTURE_2D, textureFont);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 3072, 18, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureFontData.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    // Two triangles to fill the screen
     const GLfloat pos[4*2] = {
         -1, -1,
         1, -1,
@@ -122,6 +132,14 @@ try {
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT);
+
+        // Draw the console
+        glUseProgram(progamConsole);
+        checkCall();
+
+        glActiveTexture(GL_TEXTURE0);
+        //glUniform1i(uniformFont, textureFont);
+        checkCall();
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         checkCall();

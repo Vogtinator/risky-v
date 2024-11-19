@@ -4,7 +4,10 @@ LDFLAGS := $(shell pkg-config --libs glfw3 gl)
 main: main.o glad.o
 	g++ $^ -o $@ $(LDFLAGS)
 
+%.rgba: %.png
+	magick $< $@
+
 clean:
-	rm main *.o
+	rm main *.o *.rgba
 
 .PHONY: clean
