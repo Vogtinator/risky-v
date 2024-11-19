@@ -26,6 +26,6 @@
 
 	memory@1000 {
 		device_type = "memory";
-		reg = <0x1000 0x3f000>;
+		reg = <0x1000 0x3FF000>;
 	};
 };
