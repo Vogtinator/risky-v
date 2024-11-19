@@ -97,12 +97,17 @@ try {
 
     gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress);
 
-    GLint progamConsole = createProgram(loadFile("vertex.glsl"), loadFile("console.glsl"));
-    GLint uniformFont = glGetUniformLocation(progamConsole, "font");
+    GLint programConsole = createProgram(loadFile("vertex.glsl"), loadFile("console.glsl"));
+    GLint uniformFont = glGetUniformLocation(programConsole, "font");
     checkCall();
-    GLint uniformMemory = glGetUniformLocation(progamConsole, "memory");
+    GLint uniformConsoleMemory = glGetUniformLocation(programConsole, "memory");
     checkCall();
-    std::print("Font at {} memory at {}\n", uniformFont, uniformMemory);
+    std::print("Font at {} memory at {}\n", uniformFont, uniformFont);
+
+    GLint programEmulator = createProgram(loadFile("vertex.glsl"), loadFile("emulator.glsl"));
+    GLint uniformEmuMemory = glGetUniformLocation(programEmulator, "memory");
+    checkCall();
+    std::print("Emulator memory at {}\n", uniformEmuMemory);
 
     // Create the console font texture
     GLuint textureFont = 0;
@@ -162,7 +167,7 @@ try {
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Draw the console
-        glUseProgram(progamConsole);
+        glUseProgram(programConsole);
         checkCall();
 
         glActiveTexture(GL_TEXTURE0);
@@ -170,7 +175,7 @@ try {
         glBindTexture(GL_TEXTURE_2D, textureFont);
         checkCall();
 
-        glBindImageTexture(uniformMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+        glBindImageTexture(uniformConsoleMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
         checkCall();
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -180,8 +185,20 @@ try {
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
         checkCall();
         const GLuint indices[6] = {0, 1, 2, 2, 3, 0};
+
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indices);
         checkCall();
+
+        // Run the emulator
+        glUseProgram(programEmulator);
+        checkCall();
+
+        glBindImageTexture(uniformEmuMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+        checkCall();
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indices);
+        checkCall();
+
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         checkCall();
 
