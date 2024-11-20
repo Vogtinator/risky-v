@@ -10,7 +10,7 @@ precision highp uimage2D;
 #define CONSOLE_WIDTH 40u
 #define CONSOLE_HEIGHT 25u
 
-#define MEMORY_STRIDE 1024u
+#define MEMORY_STRIDE 2048u
 #define MEMORY_CONSOLE_OFFSET 0u
 uniform layout(r32ui) uimage2D memory;
 

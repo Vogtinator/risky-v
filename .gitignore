@@ -2,4 +2,6 @@
 main
 *.o
 *.rgba
+*.dtb
+Image
 compile_commands.json

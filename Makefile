@@ -1,6 +1,8 @@
 CXXFLAGS := -g -std=c++23 -Wall -Wextra -pedantic $(shell pkg-config --cflags glfw3 gl)
 LDFLAGS := $(shell pkg-config --libs glfw3 gl)
 
+all: main mem.rgba consolefont.rgba
+
 main: main.o glad.o
 	g++ $^ -o $@ $(LDFLAGS)
 
@@ -10,7 +12,13 @@ main: main.o glad.o
 %.rgba: %.png
 	magick $< $@
 
+mem.rgba: Image emulator.dtb
+	rm -f $@
+	dd if=/dev/zero of=$@ bs=$$((2048*4)) count=2048 status=none
+	dd if=Image of=$@ bs=1024 seek=$$((4*1024)) status=none conv=notrunc
+	dd if=emulator.dtb of=$@ bs=1024 seek=4 status=none conv=notrunc
+
 clean:
 	rm main *.o *.rgba *.dtb
 
-.PHONY: clean
+.PHONY: all clean

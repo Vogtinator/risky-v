@@ -14,7 +14,7 @@
 			compatible = "riscv";
 			riscv,isa = "rv32i";
 			riscv,isa-base = "rv32i";
-			riscv,isa-extensions = "i"
+			riscv,isa-extensions = "i";
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -26,6 +26,6 @@
 
 	memory@1000 {
 		device_type = "memory";
-		reg = <0x1000 0x3FF000>;
+		reg = <0x1000 0xFFF000>;
 	};
 };

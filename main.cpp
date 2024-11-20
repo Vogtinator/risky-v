@@ -124,11 +124,9 @@ try {
     GLuint textureMemory = 0;
     glGenTextures(1, &textureMemory);
     checkCall();
-    const GLint memWidth = 1024, memHeight = 1024;
+    const GLint memWidth = 2048, memHeight = 2048;
     {
-        std::vector<GLuint> memContent(memWidth * memHeight);
-        memContent[0] = 'M';
-        memset(memContent.data(), 0x30, memContent.size() * 4);
+        auto memContent = loadFile("mem.rgba");
 
         glBindTexture(GL_TEXTURE_2D, textureMemory);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, memWidth, memHeight);

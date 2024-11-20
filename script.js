@@ -38,7 +38,7 @@ function initShaderProgram(gl, vsSource, fsSource) {
 
 // Get the WebGL context
 let canvas = document.getElementById("canvas");
-let gl = canvas.getContext("webgl");
+let gl = canvas.getContext("webgl2");
 
 // One-time WebGL initialization
 

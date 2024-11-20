@@ -4,7 +4,7 @@ precision mediump float;
 precision highp int;
 precision highp uimage2D;
 
-#define MEMORY_STRIDE 1024u
+#define MEMORY_STRIDE 2048u
 #define MEMORY_CONSOLE_OFFSET 0u
 uniform layout(r32ui) uimage2D memory;
 
@@ -31,6 +31,6 @@ void writeRaw(uint addr, uint value)
 
 void main()
 {
-    writeRaw(4u, readRaw(0u));
-    writeRaw(0u, 0x33323130u);
+    for(uint offset = 0x1000u; offset < 0x2000u; offset += 4u)
+        writeRaw(offset - 0x1000u, readRaw(offset));
 }
