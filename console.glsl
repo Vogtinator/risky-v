@@ -11,7 +11,7 @@ precision highp uimage2D;
 #define CONSOLE_HEIGHT 25u
 
 #define MEMORY_STRIDE 2048u
-#define MEMORY_CONSOLE_OFFSET 0u
+#define MEMORY_CONSOLE_OFFSET 0x400u
 uniform layout(r32ui) uimage2D memory;
 
 #define FONT_TEX_WIDTH 3072
@@ -49,7 +49,7 @@ void main()
 
     // Load the character value from the console memory
     uint char_idx = char_pos.x + char_pos.y * CONSOLE_WIDTH;
-    uint char_val = readByteRaw(char_idx);
+    uint char_val = readByteRaw(MEMORY_CONSOLE_OFFSET + char_idx);
 
     fragColor = texelFetch(font, ivec2(char_val * CHAR_WIDTH + uint(char_off.x), uint(char_off.y)), 0);
     fragColor *= vec4(vec3(0.8), 1);

@@ -113,12 +113,14 @@ try {
     GLuint textureFont = 0;
     glGenTextures(1, &textureFont);
     checkCall();
-    auto textureFontData = loadFile("consolefont.rgba");
-    glBindTexture(GL_TEXTURE_2D, textureFont);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 3072, 18, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureFontData.data());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    {
+        auto textureFontData = loadFile("consolefont.rgba");
+        glBindTexture(GL_TEXTURE_2D, textureFont);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 3072, 18, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureFontData.data());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
     // Create the memory "texture"
     GLuint textureMemory = 0;
@@ -127,6 +129,12 @@ try {
     const GLint memWidth = 2048, memHeight = 2048;
     {
         auto memContent = loadFile("mem.rgba");
+
+        uint32_t start_pc = 4 * 1024 * 1024;
+        memContent[3] = start_pc >> 24;
+        memContent[2] = start_pc >> 16;
+        memContent[1] = start_pc >> 8;
+        memContent[0] = start_pc >> 0;
 
         glBindTexture(GL_TEXTURE_2D, textureMemory);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, memWidth, memHeight);
