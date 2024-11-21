@@ -16,7 +16,8 @@ mem.rgba: Image emulator.dtb
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$$((2048*4)) count=2048 status=none
 	dd if=Image of=$@ bs=1024 seek=$$((4*1024 + 4)) status=none conv=notrunc
-	dd if=emulator.dtb of=$@ bs=1024 seek=4 status=none conv=notrunc
+	# Device tree at 4k (8k inside mem)
+	dd if=emulator.dtb of=$@ bs=1024 seek=8 status=none conv=notrunc
 
 clean:
 	rm main *.o *.rgba *.dtb

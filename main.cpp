@@ -16,7 +16,7 @@ auto loadFile(std::string path)
         throw std::runtime_error(std::format("Failed to open {}", path));
 
     fseek(f, 0, SEEK_END);
-    std::vector<char> ret(ftell(f) + 1);
+    std::vector<char> ret(ftell(f));
     rewind(f);
     fread(ret.data(), ret.size(), 1, f);
     fclose(f);
@@ -129,6 +129,10 @@ try {
     const GLint memWidth = 2048, memHeight = 2048;
     {
         auto memContent = loadFile("mem.rgba");
+        if (memContent.size() != memWidth * memHeight * sizeof(GLuint))
+            throw std::runtime_error(std::format("mem.rgba has wrong size (expected {}, actual {})",
+                                                 memWidth * memHeight * sizeof(GLuint),
+                                                 memContent.size()));
 
         uint32_t start_pc = 4 * 1024 * 1024;
         memContent[3] = start_pc >> 24;
@@ -165,12 +169,64 @@ try {
     checkCall();
     glDisable(GL_CULL_FACE);
     checkCall();
+
+    glfwSetCharCallback(window, [](GLFWwindow* window, unsigned int codepoint) {
+        if (codepoint == 'r')
+        {
+            glFinish();
+            auto memContent = loadFile("mem.rgba");
+            if (memContent.size() != memWidth * memHeight * sizeof(GLuint))
+                throw std::runtime_error(std::format("mem.rgba has wrong size (expected {}, actual {})",
+                                                    memWidth * memHeight * sizeof(GLuint),
+                                                    memContent.size()));
+
+            uint32_t start_pc = 4 * 1024 * 1024;
+            memContent[3] = start_pc >> 24;
+            memContent[2] = start_pc >> 16;
+            memContent[1] = start_pc >> 8;
+            memContent[0] = start_pc >> 0;
+
+            uint32_t dtb_addr = 4 * 1024;
+            memContent[11*4 + 3] = dtb_addr >> 24;
+            memContent[11*4 + 2] = dtb_addr >> 16;
+            memContent[11*4 + 1] = dtb_addr >> 8;
+            memContent[11*4 + 0] = dtb_addr >> 0;
+
+            glBindTexture(GL_TEXTURE_2D, textureMemory);
+            glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, memWidth, memHeight);
+            checkCall();
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, memWidth, memHeight, GL_RED_INTEGER, GL_UNSIGNED_INT, memContent.data());
+            checkCall();
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }   
+    });
     
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT);
+
+        // Prepare a full-screen quad
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        checkCall();
+        glEnableVertexAttribArray(0);
+        checkCall();
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
+        checkCall();
+        const GLuint indices[6] = {0, 1, 2, 2, 3, 0};
+
+        // Run the emulator
+        glUseProgram(programEmulator);
+        checkCall();
+
+        glBindImageTexture(uniformEmuMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+        checkCall();
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indices);
+        checkCall();
 
         // Draw the console
         glUseProgram(programConsole);
@@ -182,24 +238,6 @@ try {
         checkCall();
 
         glBindImageTexture(uniformConsoleMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-        checkCall();
-
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        checkCall();
-        glEnableVertexAttribArray(0);
-        checkCall();
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-        checkCall();
-        const GLuint indices[6] = {0, 1, 2, 2, 3, 0};
-
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indices);
-        checkCall();
-
-        // Run the emulator
-        glUseProgram(programEmulator);
-        checkCall();
-
-        glBindImageTexture(uniformEmuMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
         checkCall();
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indices);

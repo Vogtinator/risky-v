@@ -12,9 +12,9 @@
 			reg = <0>;
 			device_type = "cpu";
 			compatible = "riscv";
-			riscv,isa = "rv32i";
+			riscv,isa = "rv32ima";
 			riscv,isa-base = "rv32i";
-			riscv,isa-extensions = "i";
+			riscv,isa-extensions = "i", "m", "a";
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -24,8 +24,31 @@
 		};
 	};
 
-	memory@1000 {
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges;
+	};
+
+	memory@0 {
 		device_type = "memory";
-		reg = <0x1000 0xFFF000>;
+		reg = <0 0x1000000>;
+	};
+
+	chosen {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		bootargs = "verbose debug loglevel=9 earlycon=smh console=tty";
+
+		framebuffer0: framebuffer@1000 {
+			compatible = "simple-framebuffer";
+			reg = <0x1000 0x5A0000>;
+			width = <1280>;
+			height = <720>;
+			stride = <2048>;
+			format = "a8r8g8b8";
+		};
 	};
 };
