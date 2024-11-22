@@ -4,24 +4,28 @@ precision mediump float;
 precision highp int;
 precision highp uimage2D;
 
+// Width of the memory texture
 #define MEMORY_STRIDE 2048u
+// Size of the memory texture contents
+#define MEMORY_SIZE_BYTES (MEMORY_STRIDE*2048u*4u)
+// Offset of various structures within the memory texture
 #define MEMORY_CPU_OFFSET 0u
 #define MEMORY_CONSOLE_OFFSET 0x400u
+#define MEMORY_RAM_OFFSET 0x1000u
+#define MEMORY_RAM_SIZE (MEMORY_SIZE_BYTES-MEMORY_RAM_OFFSET)
 uniform layout(r32ui) uimage2D memory;
 
 #define CONSOLE_WIDTH 40u
 
-layout(location = 0) out vec4 fragColor;
-
 // Read and write words in the memory image. Address in bytes, must be word aligned.
-uint readRaw(uint addr)
+uint readRawWord(uint addr)
 {
     uint offset = addr / 4u;
     ivec2 mem_off = ivec2(offset % MEMORY_STRIDE, offset / MEMORY_STRIDE);
     return imageLoad(memory, mem_off).x;
 }
 
-void writeRaw(uint addr, uint value)
+void writeRawWord(uint addr, uint value)
 {
     uint offset = addr / 4u;
     ivec2 mem_off = ivec2(offset % MEMORY_STRIDE, offset / MEMORY_STRIDE);
@@ -32,33 +36,33 @@ void writeRaw(uint addr, uint value)
 uint readRawHalf(uint addr)
 {
     uint part = (addr % 4u) / 2u;
-    uint word = readRaw(addr - part*2u);
+    uint word = readRawWord(addr - part*2u);
     return (word >> (16u * part)) & 0xFFFFu;
 }
 
 uint readRawByte(uint addr)
 {
     uint byte = addr % 4u;
-    uint word = readRaw(addr - byte);
+    uint word = readRawWord(addr - byte);
     return (word >> (8u * byte)) & 0xFFu;
 }
 
 void writeRawHalf(uint addr, uint value)
 {
     uint part = (addr % 4u) / 2u;
-    uint word = readRaw(addr - part*2u);
+    uint word = readRawWord(addr - part*2u);
     word &= ~(0xFFFFu << (part * 16u));
     word |= (value & 0xFFFFu) << (part * 16u);
-    writeRaw(addr - part*2u, word);
+    writeRawWord(addr - part*2u, word);
 }
 
 void writeRawByte(uint addr, uint value)
 {
     uint byte = addr % 4u;
-    uint word = readRaw(addr - byte);
+    uint word = readRawWord(addr - byte);
     word &= ~(0xFFu << (byte * 8u));
     word |= (value & 0xFFu) << (byte * 8u);
-    writeRaw(addr - byte, word);
+    writeRawWord(addr - byte, word);
 }
 
 // Print the hex value of val to the memory image at the given addr.
@@ -104,34 +108,58 @@ struct {
     uint hwstate[HW_REGS_COUNT];
 } cpu;
 
-uint readMemByte(uint addr)
+uint readMemWord(uint addr)
 {
-    return readRawByte(addr + 0x1000u);
+    if (addr < MEMORY_RAM_SIZE)
+        return readRawWord(addr + MEMORY_RAM_OFFSET);
+    else {
+        errorVal(14u, addr);
+        return 0u;
+    }
 }
 
 uint readMemHalf(uint addr)
 {
-    return readRawHalf(addr + 0x1000u);
+    if (addr < MEMORY_RAM_SIZE)
+        return readRawHalf(addr + MEMORY_RAM_OFFSET);
+    else {
+        errorVal(15u, addr);
+        return 0u;
+    }
 }
 
-uint readMemWord(uint addr)
+uint readMemByte(uint addr)
 {
-    return readRaw(addr + 0x1000u);
+    if (addr < MEMORY_RAM_SIZE)
+        return readRawByte(addr + MEMORY_RAM_OFFSET);
+    else {
+        errorVal(16u, addr);
+        return 0u;
+    }
 }
 
 void writeMemWord(uint addr, uint value)
 {
-    writeRaw(addr + 0x1000u, value);
+    if (addr < MEMORY_RAM_SIZE)
+        writeRawWord(addr + MEMORY_RAM_OFFSET, value);
+    else
+        errorVal(17u, addr);
 }
 
 void writeMemHalf(uint addr, uint value)
 {
-    writeRawHalf(addr + 0x1000u, value);
+    if (addr < MEMORY_RAM_SIZE)
+        writeRawHalf(addr + MEMORY_RAM_OFFSET, value);
+    else
+        errorVal(18u, addr);
 }
 
 void writeMemByte(uint addr, uint value)
 {
-    writeRawByte(addr + 0x1000u, value);
+    if (addr < MEMORY_RAM_SIZE)
+        writeRawByte(addr + MEMORY_RAM_OFFSET, value);
+    else
+        errorVal(19u, addr);
 }
 
 uint getReg(uint r)
@@ -695,35 +723,35 @@ void readCPUState()
 {
     uint ptr = MEMORY_CPU_OFFSET;
 
-    cpu.pc = readRaw(ptr);
+    cpu.pc = readRawWord(ptr);
     ptr += 4u;
     cpu.regs[0] = 0u;
 
     for(uint r = 1u; r < 32u; r++, ptr += 4u)
-        cpu.regs[r] = readRaw(ptr);
+        cpu.regs[r] = readRawWord(ptr);
 
     for(uint r = 0u; r < CSR_COUNT; r++, ptr += 4u)
-        cpu.csrs[r] = readRaw(ptr);
+        cpu.csrs[r] = readRawWord(ptr);
 
     for(uint r = 0u; r < HW_REGS_COUNT; r++, ptr += 4u)
-        cpu.hwstate[r] = readRaw(ptr);
+        cpu.hwstate[r] = readRawWord(ptr);
 }
 
 void writeCPUState()
 {
     uint ptr = MEMORY_CPU_OFFSET;
 
-    writeRaw(ptr, cpu.pc);
+    writeRawWord(ptr, cpu.pc);
     ptr += 4u;
 
     for(uint r = 1u; r < 32u; r++, ptr += 4u)
-        writeRaw(ptr, cpu.regs[r]);
+        writeRawWord(ptr, cpu.regs[r]);
 
     for(uint r = 0u; r < CSR_COUNT; r++, ptr += 4u)
-        writeRaw(ptr, cpu.csrs[r]);
+        writeRawWord(ptr, cpu.csrs[r]);
 
     for(uint r = 0u; r < HW_REGS_COUNT; r++, ptr += 4u)
-        writeRaw(ptr, cpu.hwstate[r]);
+        writeRawWord(ptr, cpu.hwstate[r]);
 }
 
 void main()
