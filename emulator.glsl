@@ -98,6 +98,7 @@ void errorVal(uint code, uint value)
 #define HW_REGS_COUNT 1u
 
 struct {
+    uint pc;
     uint regs[32];
     uint csrs[CSR_COUNT];
     uint hwstate[HW_REGS_COUNT];
@@ -135,28 +136,23 @@ void writeMemByte(uint addr, uint value)
 
 uint getReg(uint r)
 {
-    if (r == 0u)
-        return 0u;
-    else
-        return cpu.regs[r];
+    return cpu.regs[r];
 }
 
 void setReg(uint r, uint val)
 {
-    if (r == 0u)
-        return;
-    else
+    if (r != 0u)
         cpu.regs[r] = val;
 }
 
 uint getPC()
 {
-    return cpu.regs[0];
+    return cpu.pc;
 }
 
 void setPC(uint pc)
 {
-    cpu.regs[0] = pc;
+    cpu.pc = pc;
 }
 
 void dumpCPUState()
@@ -164,11 +160,21 @@ void dumpCPUState()
     for(uint r = 0u; r < 32u; r++)
     {
         uint linestart = MEMORY_CONSOLE_OFFSET + (r/2u) * CONSOLE_WIDTH;
-        writeRawByte(linestart++, 0x52u);
-        writeRawByte(linestart++, 0x30u + (r / 10u));
-        writeRawByte(linestart++, 0x30u + (r % 10u));
-        writeRawByte(linestart++, 0x3Du);
-        dumpHex(linestart, cpu.regs[r]);
+        if(r == 0u) {
+            // "PC: "
+            writeRawByte(linestart++, 0x50u);
+            writeRawByte(linestart++, 0x43u);
+            writeRawByte(linestart++, 0x3Du);
+            writeRawByte(linestart++, 0x20u);
+            dumpHex(linestart, cpu.pc);
+        } else {
+            // "Rnr:"
+            writeRawByte(linestart++, 0x52u);
+            writeRawByte(linestart++, 0x30u + (r / 10u));
+            writeRawByte(linestart++, 0x30u + (r % 10u));
+            writeRawByte(linestart++, 0x3Du);
+            dumpHex(linestart, cpu.regs[r]);
+        }
         linestart += 10u;
         r++;
 
@@ -679,15 +685,21 @@ bool doInstruction()
     if (stop)
         return false;
 
-    cpu.regs[0] += 4u;
+    cpu.pc += 4u;
     return true;
 }
 
+// Dumps struct cpu to MEMORY_CPU_OFFSET.
+// cpu.pc is written in place of cpu.regs[0].
 void readCPUState()
 {
     uint ptr = MEMORY_CPU_OFFSET;
 
-    for(uint r = 0u; r < 32u; r++, ptr += 4u)
+    cpu.pc = readRaw(ptr);
+    ptr += 4u;
+    cpu.regs[0] = 0u;
+
+    for(uint r = 1u; r < 32u; r++, ptr += 4u)
         cpu.regs[r] = readRaw(ptr);
 
     for(uint r = 0u; r < CSR_COUNT; r++, ptr += 4u)
@@ -701,7 +713,10 @@ void writeCPUState()
 {
     uint ptr = MEMORY_CPU_OFFSET;
 
-    for(uint r = 0u; r < 32u; r++, ptr += 4u)
+    writeRaw(ptr, cpu.pc);
+    ptr += 4u;
+
+    for(uint r = 1u; r < 32u; r++, ptr += 4u)
         writeRaw(ptr, cpu.regs[r]);
 
     for(uint r = 0u; r < CSR_COUNT; r++, ptr += 4u)
