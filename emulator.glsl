@@ -371,19 +371,24 @@ bool doInstruction()
             if (funct3 == 2u)
                 funct7 &= ~3u;
             
-            switch((funct3 << 8u) | (funct7))
+            switch((funct3 << 8u) | funct7)
             {
                 case 0x200u: // amoadd
-                    setReg(rd, readMemWord(getReg(rs1)) + getReg(rs2));
-                    writeMemWord(rs1, getReg(rd));
+                {
+                    uint addr = getReg(rs1);
+                    uint val = readMemWord(addr);
+                    setReg(rd, val);
+                    writeMemWord(addr, val + getReg(rs2));
                     break;
+                }
                 case 0x204u: // amoswap
                 {
-                    setReg(rd, readMemWord(getReg(rs1)));
-                    uint newrd = getReg(rs2);
-                    setReg(rs2, getReg(rd));
-                    setReg(rd, newrd);
-                    writeMemWord(rs1, getReg(rd));
+                    // TODO: Is this correct? Several docs disagree...
+                    uint addr = getReg(rs1);
+                    uint val = readMemWord(addr);
+                    uint regval = getReg(rs2);
+                    setReg(rd, val);
+                    writeMemWord(addr, regval);
                     break;
                 }
                 case 0x208u: // lr
@@ -399,9 +404,21 @@ bool doInstruction()
                     setReg(rd, 0u);
                     break;
                 case 0x220u: // amoor
-                    setReg(rd, readMemWord(getReg(rs1)) | getReg(rs2));
-                    writeMemWord(rs1, getReg(rd));
+                {
+                    uint addr = getReg(rs1);
+                    uint val = readMemWord(addr);
+                    setReg(rd, val);
+                    writeMemWord(addr, val | getReg(rs2));
                     break;
+                }
+                case 0x230u: // amoand
+                {
+                    uint addr = getReg(rs1);
+                    uint val = readMemWord(addr);
+                    setReg(rd, val);
+                    writeMemWord(addr, val & getReg(rs2));
+                    break;
+                }
                 default:
                     errorVal(9u, (funct3 << 8u) | (funct7));
                     return false;
@@ -416,7 +433,7 @@ bool doInstruction()
             uint rs2 = (inst >> 20u) & 31u;
             uint funct7 = inst >> 25u;
 
-            switch((funct3 << 8u) | (funct7))
+            switch((funct3 << 8u) | funct7)
             {
                 case 0x000u: // add
                     setReg(rd, getReg(rs1) + getReg(rs2));
@@ -465,7 +482,7 @@ bool doInstruction()
                     setReg(rd, getReg(rs1) % getReg(rs2));
                     break;
                 default:
-                    errorVal(10u, (funct3 << 8u) | (funct7));
+                    errorVal(10u, (funct3 << 8u) | funct7);
                     return false;
             }
             break;
