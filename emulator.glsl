@@ -13,6 +13,7 @@ uniform layout(r32ui) uimage2D memory;
 
 layout(location = 0) out vec4 fragColor;
 
+// Read and write words in the memory image. Address in bytes, must be word aligned.
 uint readRaw(uint addr)
 {
     uint offset = addr / 4u;
@@ -20,6 +21,14 @@ uint readRaw(uint addr)
     return imageLoad(memory, mem_off).x;
 }
 
+void writeRaw(uint addr, uint value)
+{
+    uint offset = addr / 4u;
+    ivec2 mem_off = ivec2(offset % MEMORY_STRIDE, offset / MEMORY_STRIDE);
+    imageStore(memory, mem_off, uvec4(value, 0, 0, 0));
+}
+
+// RMW functions for non word sized accesses.
 uint readRawHalf(uint addr)
 {
     uint part = (addr % 4u) / 2u;
@@ -32,13 +41,6 @@ uint readRawByte(uint addr)
     uint byte = addr % 4u;
     uint word = readRaw(addr - byte);
     return (word >> (8u * byte)) & 0xFFu;
-}
-
-void writeRaw(uint addr, uint value)
-{
-    uint offset = addr / 4u;
-    ivec2 mem_off = ivec2(offset % MEMORY_STRIDE, offset / MEMORY_STRIDE);
-    imageStore(memory, mem_off, uvec4(value, 0, 0, 0));
 }
 
 void writeRawHalf(uint addr, uint value)
@@ -59,6 +61,7 @@ void writeRawByte(uint addr, uint value)
     writeRaw(addr - byte, word);
 }
 
+// Print the hex value of val to the memory image at the given addr.
 void dumpHex(uint addr, uint val)
 {
     for(uint pos = 0u; pos < 8u; ++pos) {
@@ -69,22 +72,19 @@ void dumpHex(uint addr, uint val)
     }
 }
 
+// If set, returns false from doInstruction.
 bool stop = false;
 
-void error(uint code)
+// Print "E: code value" below the register view.
+void errorVal(uint code, uint value)
 {
     uint linestart = MEMORY_CONSOLE_OFFSET + 17u * CONSOLE_WIDTH;
     writeRawByte(linestart++, 0x45u);
     writeRawByte(linestart++, 0x20u);
-    dumpHex(linestart++, code);
+    dumpHex(linestart, code);
+    linestart += 9u;
+    dumpHex(linestart, value);
     stop = true;
-}
-
-void errorVal(uint code, uint value)
-{
-    uint linestart = MEMORY_CONSOLE_OFFSET + 17u * CONSOLE_WIDTH;
-    error(code);
-    dumpHex(linestart + 12u, value);
 }
 
 #define CSR_MIP 0u
@@ -239,7 +239,7 @@ bool doInstruction()
     uint inst = readMemWord(getPC());
     uint opc = inst & 0x7Fu;
     if ((inst & 0x3u) != 0x3u) {
-        error(0u);
+        errorVal(0u, inst);
         return false;
     }
 
@@ -269,7 +269,7 @@ bool doInstruction()
                     setReg(rd, readMemHalf(uint(int(getReg(rs1)) + imm)));
                     break;
                 default:
-                    error(8u);
+                    errorVal(8u, funct3);
                     return false;
             }
             break;
@@ -354,7 +354,7 @@ bool doInstruction()
                     writeMemWord(uint(int(getReg(rs1)) + imm), getReg(rs2));
                     break;
                 default:
-                    error(7u);
+                    errorVal(7u, funct3);
                     return false;
             }
             break;
@@ -393,7 +393,7 @@ bool doInstruction()
                 }
                 case 0x208u: // lr
                     if (rs2 != 0u) {
-                        error(12u);
+                        errorVal(12u, rs2);
                         return false;
                     }
 
@@ -540,7 +540,7 @@ bool doInstruction()
                     take = rs1valu >= rs2valu;
                     break;
                 default:
-                    error(6u);
+                    errorVal(6u, funct3);
                     return false;
             }
             if (take) {
@@ -672,7 +672,7 @@ bool doInstruction()
             break;
         }
         default:
-            error(1u);
+            errorVal(1u, inst);
             return false;
     }
 
