@@ -94,10 +94,13 @@ void errorVal(uint code, uint value)
 #define CSR_MSTATUS 4u
 #define CSR_COUNT 5u
 
+#define SMH_LINE_OFFSET 0u
+#define HW_REGS_COUNT 1u
+
 struct {
     uint regs[32];
     uint csrs[CSR_COUNT];
-    uint instrs_run;
+    uint hwstate[HW_REGS_COUNT];
 } cpu;
 
 uint readMemByte(uint addr)
@@ -117,8 +120,6 @@ uint readMemWord(uint addr)
 
 void writeMemWord(uint addr, uint value)
 {
-    if(value == 0xAAAAAAAAu)
-        errorVal(46u, addr);
     writeRaw(addr + 0x1000u, value);
 }
 
@@ -177,8 +178,6 @@ void dumpCPUState()
         writeRawByte(linestart++, 0x3Du);
         dumpHex(linestart, cpu.regs[r]);
     }
-
-    dumpHex(MEMORY_CONSOLE_OFFSET + 30u, cpu.instrs_run);
 }
 
 uint getCSR(uint csr)
@@ -237,17 +236,6 @@ void setCSR(uint csr, uint value)
 
 bool doInstruction()
 {
-    cpu.instrs_run++;
-
-    //if (getPC() == 0x55c0f8u) {
-        uint memblock_addr = 0x56796cu;
-        uint regions_addr = readMemWord(memblock_addr + 20u);
-        if (true || readMemWord(regions_addr + 4u) == 0u) {
-            //errorVal(42u, readMemWord(regions_addr + 4u));
-            stop = false;
-        }
-    //}
-
     uint inst = readMemWord(getPC());
     uint opc = inst & 0x7Fu;
     if ((inst & 0x3u) != 0x3u) {
@@ -562,6 +550,21 @@ bool doInstruction()
             uint funct3 = (inst >> 12u) & 0x7u;
             switch(funct3)
             {
+                case 0u: // EBREAK
+                {
+                    uint op = getReg(10u);
+                    if (op == 3u) {
+                        // smh putc
+                        uint char = readMemByte(getReg(11u));
+                        if (char == 0x0au)
+                            cpu.hwstate[SMH_LINE_OFFSET] = 0u;
+                        else
+                            writeRawByte(MEMORY_CONSOLE_OFFSET + 18u * CONSOLE_WIDTH + cpu.hwstate[SMH_LINE_OFFSET]++, char);
+                    } else
+                        errorVal(45u, op);
+
+                    break;
+                }
                 case 1u: // CSRRW
                 {
                     uint csr = inst >> 20u;
@@ -647,24 +650,30 @@ bool doInstruction()
 
 void readCPUState()
 {
-    for(uint r = 0u; r < 32u; r++)
-        cpu.regs[r] = readRaw(MEMORY_CPU_OFFSET + r * 4u);
+    uint ptr = MEMORY_CPU_OFFSET;
 
-    for(uint r = 0u; r < CSR_COUNT; r++)
-        cpu.csrs[r] = readRaw(MEMORY_CPU_OFFSET + (32u * 4u) + r * 4u);
+    for(uint r = 0u; r < 32u; r++, ptr += 4u)
+        cpu.regs[r] = readRaw(ptr);
 
-    cpu.instrs_run = readRaw(MEMORY_CPU_OFFSET + (32u * 4u + CSR_COUNT * 4u));
+    for(uint r = 0u; r < CSR_COUNT; r++, ptr += 4u)
+        cpu.csrs[r] = readRaw(ptr);
+
+    for(uint r = 0u; r < HW_REGS_COUNT; r++, ptr += 4u)
+        cpu.hwstate[r] = readRaw(ptr);
 }
 
 void writeCPUState()
 {
-    for(uint r = 0u; r < 32u; r++)
-        writeRaw(MEMORY_CPU_OFFSET + r * 4u, cpu.regs[r]);
+    uint ptr = MEMORY_CPU_OFFSET;
 
-    for(uint r = 0u; r < CSR_COUNT; r++)
-        writeRaw(MEMORY_CPU_OFFSET + (32u * 4u) + r * 4u, cpu.csrs[r]);
+    for(uint r = 0u; r < 32u; r++, ptr += 4u)
+        writeRaw(ptr, cpu.regs[r]);
 
-    writeRaw(MEMORY_CPU_OFFSET + (32u * 4u + CSR_COUNT * 4u), cpu.instrs_run);
+    for(uint r = 0u; r < CSR_COUNT; r++, ptr += 4u)
+        writeRaw(ptr, cpu.csrs[r]);
+
+    for(uint r = 0u; r < HW_REGS_COUNT; r++, ptr += 4u)
+        writeRaw(ptr, cpu.hwstate[r]);
 }
 
 void main()
@@ -699,7 +708,7 @@ void main()
 
     readCPUState();
 
-    for(uint counter = 128u; counter > 0u; --counter)
+    for(uint counter = 4096u; counter > 0u; --counter)
         if (!doInstruction())
             break;
 

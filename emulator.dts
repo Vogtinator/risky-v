@@ -42,7 +42,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		bootargs = "verbose debug loglevel=9 earlycon=nosmh console=tty";
+		bootargs = "verbose debug loglevel=9 earlycon=smh console=tty";
 
 		framebuffer0: framebuffer@1000 {
 			status = "okay";
