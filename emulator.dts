@@ -5,16 +5,18 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
-	cpus: cpus {
+	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
 		cpu0: cpu@0 {
+			status = "okay";
 			reg = <0>;
 			device_type = "cpu";
 			compatible = "riscv";
-			riscv,isa = "rv32ima";
+			riscv,isa = "rv32ima_zicsr_zifencei";
 			riscv,isa-base = "rv32i";
-			riscv,isa-extensions = "i", "m", "a";
+			riscv,isa-extensions = "i", "m", "a", "zicsr", "zifencei";
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -40,11 +42,12 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		bootargs = "verbose debug loglevel=9 earlycon=smh console=tty";
+		bootargs = "verbose debug loglevel=9 earlycon=nosmh console=tty";
 
 		framebuffer0: framebuffer@1000 {
+			status = "okay";
 			compatible = "simple-framebuffer";
-			reg = <0x1000 0x5A0000>;
+			reg = <0xA00000 0x5A0000>;
 			width = <1280>;
 			height = <720>;
 			stride = <2048>;

@@ -112,15 +112,13 @@ uint readMemHalf(uint addr)
 
 uint readMemWord(uint addr)
 {
-    if(addr == 0x567370u && readRaw(addr + 0x1000u) != 0x99fa70u)
-        errorVal(addr + 1u, readRaw(addr + 0x1000u));
     return readRaw(addr + 0x1000u);
 }
 
 void writeMemWord(uint addr, uint value)
 {
-    if(addr == 0x567370u && value != 0x99fa70u)
-        errorVal(addr, value);
+    if(value == 0xAAAAAAAAu)
+        errorVal(46u, addr);
     writeRaw(addr + 0x1000u, value);
 }
 
@@ -189,10 +187,14 @@ uint getCSR(uint csr)
     {
         case 0x300u:
             return cpu.csrs[CSR_MSTATUS];
+        case 0xF11u: // mvendorid
+        case 0xF12u: // marchid
+        case 0xF13u: // mimpid
+            return 0u;
         case 0xF14u: // mhartid
             return 0u;
         default:
-            error(3u);
+            errorVal(3u, csr);
             return 0u;
     }
 }
@@ -221,10 +223,14 @@ void setCSR(uint csr, uint value)
             return;
         case 0x3B0u: // pmpaddr0
             return;
+        case 0xF11u: // mvendorid
+        case 0xF12u: // marchid
+        case 0xF13u: // mimpid
+            return;
         case 0xF14u: // mhartid
             return;
         default:
-            error(4u);
+            errorVal(4u, csr);
             return;
     }
 }
@@ -263,13 +269,16 @@ bool doInstruction()
                     setReg(rd, readMemByte(uint(int(getReg(rs1)) + imm)));
                     break;
                 case 1u: // lh
-                    setReg(rd, readMemHalf(uint(int(getReg(rs1)) + imm)));
+                    setReg(rd, uint(int(readMemHalf(uint(int(getReg(rs1)) + imm)) << 16u) >> 16u));
                     break;
                 case 2u: // lw
                     setReg(rd, readMemWord(uint(int(getReg(rs1)) + imm)));
                     break;
                 case 4u: // lbu
                     setReg(rd, readMemByte(uint(int(getReg(rs1)) + imm)));
+                    break;
+                case 5u: // lhu
+                    setReg(rd, readMemHalf(uint(int(getReg(rs1)) + imm)));
                     break;
                 default:
                     error(8u);
@@ -301,6 +310,9 @@ bool doInstruction()
                         errorVal(12u, rawimm);
                         return false;
                     }
+                    break;
+                case 0x2u: // slti
+                    setReg(rd, (int(getReg(rs1)) < imm) ? 1u : 0u);
                     break;
                 case 0x3u: // sltiu
                     setReg(rd, (getReg(rs1) < rawimm) ? 1u : 0u);
@@ -365,7 +377,7 @@ bool doInstruction()
             uint rd = (inst >> 7u) & 31u;
             uint rs1 = (inst >> 15u) & 31u;
             uint rs2 = (inst >> 20u) & 31u;
-            uint funct7 = (inst >> 25u) & 31u;
+            uint funct7 = inst >> 25u;
 
             // For atomic, ignore aq and rl bits
             if (funct3 == 2u)
@@ -396,6 +408,7 @@ bool doInstruction()
                     break;
                 case 0x20cu: // sc
                     writeMemWord(getReg(rs1), getReg(rs2));
+                    setReg(rd, 0u);
                     break;
                 case 0x220u: // amoor
                     setReg(rd, readMemWord(getReg(rs1)) | getReg(rs2));
@@ -413,7 +426,8 @@ bool doInstruction()
             uint rd = (inst >> 7u) & 31u;
             uint rs1 = (inst >> 15u) & 31u;
             uint rs2 = (inst >> 20u) & 31u;
-            uint funct7 = (inst >> 25u) & 31u;
+            uint funct7 = inst >> 25u;
+
             switch((funct3 << 8u) | (funct7))
             {
                 case 0x000u: // add
@@ -421,6 +435,15 @@ bool doInstruction()
                     break;
                 case 0x001u: // mul
                     setReg(rd, getReg(rs1) * getReg(rs2));
+                    break;
+                case 0x020u: // sub
+                    setReg(rd, getReg(rs1) - getReg(rs2));
+                    break;
+                case 0x100u: // sll
+                    setReg(rd, getReg(rs1) << (getReg(rs2) & 31u));
+                    break;
+                case 0x200u: // slt
+                    setReg(rd, (int(getReg(rs1)) < int(getReg(rs2))) ? 1u : 0u);
                     break;
                 case 0x300u: // sltu
                     setReg(rd, (getReg(rs1) < getReg(rs2)) ? 1u : 0u);
@@ -435,14 +458,23 @@ bool doInstruction()
                 case 0x400u: // xor
                     setReg(rd, getReg(rs1) ^ getReg(rs2));
                     break;
+                case 0x401u: // div
+                    setReg(rd, uint(int(getReg(rs1)) / int(getReg(rs2))));
+                    break;
                 case 0x500u: // srl
                     setReg(rd, getReg(rs1) >> (getReg(rs2) & 31u));
+                    break;
+                case 0x501u: // divu
+                    setReg(rd, getReg(rs1) / getReg(rs2));
                     break;
                 case 0x600u: // or
                     setReg(rd, getReg(rs1) | getReg(rs2));
                     break;
                 case 0x700u: // and
                     setReg(rd, getReg(rs1) & getReg(rs2));
+                    break;
+                case 0x701u: // remu
+                    setReg(rd, getReg(rs1) % getReg(rs2));
                     break;
                 default:
                     errorVal(10u, (funct3 << 8u) | (funct7));
@@ -534,11 +566,12 @@ bool doInstruction()
                 {
                     uint csr = inst >> 20u;
                     uint rd = (inst >> 7u) & 31u;
+                    uint rs1 = (inst >> 15u) & 31u;
+                    uint rs1val = getReg(rs1);
                     if (rd != 0u) {
                         setReg(rd, getCSR(csr));
                     }
-                    uint rs1 = (inst >> 15u) & 31u;
-                    setCSR(csr, getReg(rs1));
+                    setCSR(csr, rs1val);
                     break;
                 }
                 case 2u: // CSRRS

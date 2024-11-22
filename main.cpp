@@ -68,8 +68,7 @@ void checkCall()
 {
     const int err = glGetError();
     if (err != GL_NO_ERROR)
-        //throw std::runtime_error(std::format("Got error {}", err));
-        std::print("Got error {}\n", err);
+        throw std::runtime_error(std::format("Got error {}", err));
 }
 
 int main(int argc, char *argv[])
@@ -140,6 +139,12 @@ try {
         memContent[1] = start_pc >> 8;
         memContent[0] = start_pc >> 0;
 
+        uint32_t dtb_addr = 0x1000;
+        memContent[11*4 + 3] = dtb_addr >> 24;
+        memContent[11*4 + 2] = dtb_addr >> 16;
+        memContent[11*4 + 1] = dtb_addr >> 8;
+        memContent[11*4 + 0] = dtb_addr >> 0;
+
         glBindTexture(GL_TEXTURE_2D, textureMemory);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, memWidth, memHeight);
         checkCall();
@@ -169,39 +174,6 @@ try {
     checkCall();
     glDisable(GL_CULL_FACE);
     checkCall();
-
-    glfwSetCharCallback(window, [](GLFWwindow* window, unsigned int codepoint) {
-        if (codepoint == 'r')
-        {
-            glFinish();
-            auto memContent = loadFile("mem.rgba");
-            if (memContent.size() != memWidth * memHeight * sizeof(GLuint))
-                throw std::runtime_error(std::format("mem.rgba has wrong size (expected {}, actual {})",
-                                                    memWidth * memHeight * sizeof(GLuint),
-                                                    memContent.size()));
-
-            uint32_t start_pc = 4 * 1024 * 1024;
-            memContent[3] = start_pc >> 24;
-            memContent[2] = start_pc >> 16;
-            memContent[1] = start_pc >> 8;
-            memContent[0] = start_pc >> 0;
-
-            uint32_t dtb_addr = 4 * 1024;
-            memContent[11*4 + 3] = dtb_addr >> 24;
-            memContent[11*4 + 2] = dtb_addr >> 16;
-            memContent[11*4 + 1] = dtb_addr >> 8;
-            memContent[11*4 + 0] = dtb_addr >> 0;
-
-            glBindTexture(GL_TEXTURE_2D, textureMemory);
-            glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, memWidth, memHeight);
-            checkCall();
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, memWidth, memHeight, GL_RED_INTEGER, GL_UNSIGNED_INT, memContent.data());
-            checkCall();
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }   
-    });
     
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
