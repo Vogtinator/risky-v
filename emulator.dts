@@ -8,9 +8,10 @@
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		/* 128 ticks per frame * 60 fps = 7680 ticks per second */
+		timebase-frequency = <1000000>;
 
-		cpu0: cpu@0 {
-			status = "okay";
+		cpu@0 {
 			reg = <0>;
 			device_type = "cpu";
 			compatible = "riscv";
@@ -31,6 +32,12 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 		ranges;
+
+		timer@f0000000 {
+			compatible = "sifive,clint0";
+			interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
+			reg = <0xF0000000 0x10000>;
+		};
 	};
 
 	memory@0 {

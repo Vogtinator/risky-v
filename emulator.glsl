@@ -96,10 +96,22 @@ void errorVal(uint code, uint value)
 #define CSR_MSCRATCH 2u
 #define CSR_MTVEC 3u
 #define CSR_MSTATUS 4u
-#define CSR_COUNT 5u
+#define CSR_MEPC 5u
+#define CSR_MTVAL 6u
+#define CSR_MCAUSE 7u
+#define CSR_COUNT 8u
+
+#define BIT_MIE_TIE (1u << 7u)
+#define BIT_MSTATUS_MIE (1u << 3u)
+#define BIT_MSTATUS_MPIE (1u << 7u)
+#define SHIFT_MSTATUS_MPP 11u
 
 #define SMH_LINE_OFFSET 0u
-#define HW_REGS_COUNT 1u
+#define CLINT_TIMER_VALL 1u
+#define CLINT_TIMER_VALH 2u
+#define CLINT_TIMER_CMPL 3u
+#define CLINT_TIMER_CMPH 4u
+#define HW_REGS_COUNT 5u
 
 struct {
     uint pc;
@@ -112,6 +124,10 @@ uint readMemWord(uint addr)
 {
     if (addr < MEMORY_RAM_SIZE)
         return readRawWord(addr + MEMORY_RAM_OFFSET);
+    else if (addr == 0xF000BFF8u)
+        return cpu.hwstate[CLINT_TIMER_VALL];
+    else if (addr == 0xF000BFFCu)
+        return cpu.hwstate[CLINT_TIMER_VALH];
     else {
         errorVal(14u, addr);
         return 0u;
@@ -142,6 +158,10 @@ void writeMemWord(uint addr, uint value)
 {
     if (addr < MEMORY_RAM_SIZE)
         writeRawWord(addr + MEMORY_RAM_OFFSET, value);
+    else if (addr == 0xF0004000u)
+        cpu.hwstate[CLINT_TIMER_CMPL] = value;
+    else if (addr == 0xF0004004u)
+        cpu.hwstate[CLINT_TIMER_CMPH] = value;
     else
         errorVal(17u, addr);
 }
@@ -220,6 +240,16 @@ uint getCSR(uint csr)
     {
         case 0x300u:
             return cpu.csrs[CSR_MSTATUS];
+        case 0x304u:
+            return cpu.csrs[CSR_MIE];
+        case 0x340u:
+            return cpu.csrs[CSR_MSCRATCH];
+        case 0x341u:
+            return cpu.csrs[CSR_MEPC];
+        case 0x342u:
+            return cpu.csrs[CSR_MCAUSE];
+        case 0x343u:
+            return cpu.csrs[CSR_MTVAL];
         case 0xF11u: // mvendorid
         case 0xF12u: // marchid
         case 0xF13u: // mimpid
@@ -248,9 +278,17 @@ void setCSR(uint csr, uint value)
         case 0x340u:
             cpu.csrs[CSR_MSCRATCH] = value;
             return;
+        case 0x341u:
+            cpu.csrs[CSR_MEPC] = value;
+            return;
+        case 0x342u:
+            cpu.csrs[CSR_MCAUSE] = value;
+            return;
+        case 0x343u:
+            cpu.csrs[CSR_MTVAL] = value;
+            return;
         case 0x344u:
             cpu.csrs[CSR_MIP] = value;
-            // TODO: Clear stuff
             return;
         case 0x3A0u: // pmpcfg0
             return;
@@ -266,6 +304,28 @@ void setCSR(uint csr, uint value)
             errorVal(4u, csr);
             return;
     }
+}
+
+void handleMret()
+{
+    uint mstatus = cpu.csrs[CSR_MSTATUS];
+
+    // Set mstatus.mie to mstatus.mpie
+    if ((mstatus & BIT_MSTATUS_MPIE) != 0u)
+        mstatus |= BIT_MSTATUS_MIE;
+    else
+        mstatus &= ~BIT_MSTATUS_MIE;
+
+    // Go into mstatus.mpp mode
+    uint newpriv = (mstatus >> SHIFT_MSTATUS_MPP) & 3u;
+    if (newpriv != 3u)
+        errorVal(21u, newpriv);
+
+    // Set mstatus.mpp to U
+    mstatus &= ~(3u << SHIFT_MSTATUS_MPP);
+
+    cpu.csrs[CSR_MSTATUS] = mstatus;
+    setPC(cpu.csrs[CSR_MEPC]);
 }
 
 bool doInstruction()
@@ -627,9 +687,15 @@ bool doInstruction()
                         } else {
                             errorVal(13u, op);
                         }
-                    } else if(inst == 0x10500073u) // WFI
+                    } else if(inst == 0x10500073u) {
+                        // WFI
+                        // TODO: Forward until next interrupt?
                         break;
-                    else {
+                    } else if(inst == 0x30200073u) {
+                        // MRET
+                        handleMret();
+                        return true;
+                    } else {
                         errorVal(14u, inst);
                     }
                     break;
@@ -754,41 +820,55 @@ void writeCPUState()
         writeRawWord(ptr, cpu.hwstate[r]);
 }
 
+void handleInterrupt(uint cause)
+{
+    cpu.csrs[CSR_MCAUSE] = cause;
+    cpu.csrs[CSR_MEPC] = getPC();
+    setPC(cpu.csrs[CSR_MTVEC]);
+
+    // Move mstatus.mie to mstatus.mpie and set mstatus.mpp
+    cpu.csrs[CSR_MSTATUS] &= ~((3u << SHIFT_MSTATUS_MPP) | BIT_MSTATUS_MIE);
+    // TODO: User mode stuff
+    cpu.csrs[CSR_MSTATUS] |= 3u << SHIFT_MSTATUS_MPP;
+    // If we end up here, MIE was previously set
+    cpu.csrs[CSR_MSTATUS] |= BIT_MSTATUS_MPIE;
+}
+
 void main()
 {
     if (gl_FragCoord.xy != vec2(0.5, 0.5))
         return;
 
-    /*   
-        readCPUState();
-        writeMemWord(4u, 0xdeadbeefu);
-        writeMemHalf(6u, 0xcafeu);
-        writeMemByte(7u, 0x7fu);
-        setReg(1u, readMemWord(4u));
-        setReg(2u, 42u);
-        setReg(11u, 43u);
-        dumpCPUState();
-        writeCPUState();
-        return;
-    */
-    
-        /*readCPUState();
-        setReg(1u, readMemWord(0x567370u));
-        setReg(2u, 42u);
-        setReg(11u, 43u);
-
-        writeMemWord(0x567370u, 0xdeadbeefu);
-        writeMemHalf(0x567370u + 2u, 0xcafeu);
-        writeMemByte(0x567370u + 3u, 0x7fu);
-        dumpCPUState();
-        writeCPUState();
-        return;*/
-
     readCPUState();
 
-    for(uint counter = 4096u; counter > 0u; --counter)
-        if (!doInstruction())
-            break;
+    for(uint ticks = 128u; ticks > 0u; --ticks)
+    {
+        // Run 64 instructions in between timer ticks
+        for(uint cycles = 64u; cycles > 0u; --cycles)
+            if (!doInstruction())
+                break;
+
+        // TODO: Handle VALH and CMPH
+        cpu.hwstate[CLINT_TIMER_VALL]++;
+
+        // Check for interrupts
+        if(cpu.hwstate[CLINT_TIMER_CMPL] == cpu.hwstate[CLINT_TIMER_VALL])
+            cpu.csrs[CSR_MIP] |= BIT_MIE_TIE;
+
+        if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u)
+        {
+            uint ipend = cpu.csrs[CSR_MIP] & cpu.csrs[CSR_MIE];
+            if(ipend != 0u)
+            {
+                if(ipend == BIT_MIE_TIE)
+                    handleInterrupt(0x80000007u); // IRQ 7
+                else {
+                    errorVal(20u, ipend);
+                    break;
+                }
+            }
+        }
+    }
 
     dumpCPUState();
     writeCPUState();
