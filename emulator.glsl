@@ -447,6 +447,14 @@ bool doInstruction()
                 case 0x100u: // sll
                     setReg(rd, getReg(rs1) << (getReg(rs2) & 31u));
                     break;
+                case 0x101u: // mulh
+                {
+                    // TODO: Correct signedness?
+                    int lres, hres;
+                    imulExtended(int(getReg(rs1)), int(getReg(rs2)), hres, lres);
+                    setReg(rd, uint(hres));
+                    break;
+                }
                 case 0x200u: // slt
                     setReg(rd, (int(getReg(rs1)) < int(getReg(rs2))) ? 1u : 0u);
                     break;
@@ -471,6 +479,9 @@ bool doInstruction()
                     break;
                 case 0x501u: // divu
                     setReg(rd, getReg(rs1) / getReg(rs2));
+                    break;
+                case 0x520u: // sra
+                    setReg(rd, uint(int(getReg(rs1)) >> (getReg(rs2) & 31u)));
                     break;
                 case 0x600u: // or
                     setReg(rd, getReg(rs1) | getReg(rs2));
@@ -567,19 +578,26 @@ bool doInstruction()
             uint funct3 = (inst >> 12u) & 0x7u;
             switch(funct3)
             {
-                case 0u: // EBREAK
+                case 0u: // Misc stuff
                 {
-                    uint op = getReg(10u);
-                    if (op == 3u) {
-                        // smh putc
-                        uint char = readMemByte(getReg(11u));
-                        if (char == 0x0au)
-                            cpu.hwstate[SMH_LINE_OFFSET] = 0u;
-                        else
-                            writeRawByte(MEMORY_CONSOLE_OFFSET + 18u * CONSOLE_WIDTH + cpu.hwstate[SMH_LINE_OFFSET]++, char);
-                    } else
-                        errorVal(45u, op);
-
+                    if(inst == 0x00100073u) // EBREAK
+                    {
+                        uint op = getReg(10u);
+                        if (op == 3u) {
+                            // smh putc
+                            uint char = readMemByte(getReg(11u));
+                            if (char == 0x0au)
+                                cpu.hwstate[SMH_LINE_OFFSET] = 0u;
+                            else
+                                writeRawByte(MEMORY_CONSOLE_OFFSET + 18u * CONSOLE_WIDTH + cpu.hwstate[SMH_LINE_OFFSET]++, char);
+                        } else {
+                            errorVal(13u, op);
+                        }
+                    } else if(inst == 0x10500073u) // WFI
+                        break;
+                    else {
+                        errorVal(14u, inst);
+                    }
                     break;
                 }
                 case 1u: // CSRRW
