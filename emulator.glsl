@@ -471,8 +471,8 @@ bool doInstruction()
                 {
                     uint addr = getReg(rs1);
                     uint val = readMemWord(addr);
-                    setReg(rd, val);
                     writeMemWord(addr, val + getReg(rs2));
+                    setReg(rd, val);
                     break;
                 }
                 case 0x204u: // amoswap
@@ -481,8 +481,8 @@ bool doInstruction()
                     uint addr = getReg(rs1);
                     uint val = readMemWord(addr);
                     uint regval = getReg(rs2);
-                    setReg(rd, val);
                     writeMemWord(addr, regval);
+                    setReg(rd, val);
                     break;
                 }
                 case 0x208u: // lr
@@ -501,16 +501,16 @@ bool doInstruction()
                 {
                     uint addr = getReg(rs1);
                     uint val = readMemWord(addr);
-                    setReg(rd, val);
                     writeMemWord(addr, val | getReg(rs2));
+                    setReg(rd, val);
                     break;
                 }
                 case 0x230u: // amoand
                 {
                     uint addr = getReg(rs1);
                     uint val = readMemWord(addr);
-                    setReg(rd, val);
                     writeMemWord(addr, val & getReg(rs2));
+                    setReg(rd, val);
                     break;
                 }
                 default:
@@ -858,14 +858,11 @@ void main()
         if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u)
         {
             uint ipend = cpu.csrs[CSR_MIP] & cpu.csrs[CSR_MIE];
-            if(ipend != 0u)
-            {
-                if(ipend == BIT_MIE_TIE)
-                    handleInterrupt(0x80000007u); // IRQ 7
-                else {
-                    errorVal(20u, ipend);
-                    break;
-                }
+            if(ipend == BIT_MIE_TIE)
+                handleInterrupt(0x80000007u); // IRQ 7
+            else if (ipend != 0u) {
+                errorVal(20u, ipend);
+                break;
             }
         }
     }
