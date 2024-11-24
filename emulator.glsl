@@ -306,6 +306,8 @@ void setCSR(uint csr, uint value)
     }
 }
 
+uint lrScInProgress = 0u;
+
 void handleMret()
 {
     uint mstatus = cpu.csrs[CSR_MSTATUS];
@@ -516,11 +518,17 @@ bool doInstruction()
                         return false;
                     }
 
+                    lrScInProgress = getPC();
                     setReg(rd, readMemWord(getReg(rs1)));
                     break;
                 case 0x20cu: // sc
-                    writeMemWord(getReg(rs1), getReg(rs2));
-                    setReg(rd, 0u);
+                    if (lrScInProgress != 0u) {
+                        writeMemWord(getReg(rs1), getReg(rs2));
+                        setReg(rd, 0u);
+                    } else {
+                        setReg(rd, 1u);
+                    }
+                    lrScInProgress = 0u;
                     break;
                 case 0x220u: // amoor
                 {
