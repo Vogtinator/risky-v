@@ -790,7 +790,7 @@ bool doInstruction()
                     uint rd = (inst >> 7u) & 31u;
                     uint imm = (inst >> 15u) & 31u;
                     uint csrval = getCSR(csr);
-                    setReg(rd, getCSR(csr));
+                    setReg(rd, csrval);
                     setCSR(csr, csrval | imm);
                     break;
                 }
@@ -800,7 +800,7 @@ bool doInstruction()
                     uint rd = (inst >> 7u) & 31u;
                     uint imm = (inst >> 15u) & 31u;
                     uint csrval = getCSR(csr);
-                    setReg(rd, getCSR(csr));
+                    setReg(rd, csrval);
                     setCSR(csr, csrval & ~imm);
                     break;
                 }
@@ -808,7 +808,12 @@ bool doInstruction()
                     errorVal(2u, funct3);
                     return false;
             }
-            break;
+
+            // Immediately check for interrupts
+            // TODO: Only do this on WFI and if writing to mstatus
+            // TODO: Actually only check for interrupts, don't just tick
+            cpu.pc += 4u;
+            return false;
         }
         default:
             errorVal(1u, inst);
