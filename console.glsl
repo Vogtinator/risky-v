@@ -12,6 +12,9 @@ precision highp uimage2D;
 
 #define MEMORY_STRIDE 2048u
 #define MEMORY_CONSOLE_OFFSET 0x400u
+#define MEMORY_RAM_OFFSET 0x1000u
+#define MEMORY_FRAMEBUFFER_OFFSET (MEMORY_RAM_OFFSET + 0x3000u)
+#define MEMORY_FRAMEBUFFER_Y_START (MEMORY_FRAMEBUFFER_OFFSET/(MEMORY_STRIDE*4u))
 uniform layout(r32ui) uimage2D memory;
 
 #define FONT_TEX_WIDTH 3072
@@ -32,6 +35,13 @@ uint readByteRaw(uint addr)
     return (imageLoad(memory, mem_off).x >> (8u * byte)) & 0xFFu;
 }
 
+vec3 readFramebufferPixel(ivec2 coord)
+{
+    uint argbraw = imageLoad(memory, ivec2(coord.x, coord.y + int(MEMORY_FRAMEBUFFER_Y_START))).x;
+    uvec3 rgb = (uvec3(argbraw) >> uvec3(16u, 8u, 0u)) & uvec3(0xFFu);
+    return vec3(rgb) / vec3(0xFF);
+}
+
 void main()
 {
     // Flip Y
@@ -39,6 +49,12 @@ void main()
 
     // Which position in the letter grid
     uvec2 char_pos = uvec2(pixelcoord) / char_size;
+
+    if (char_pos.y != 18u) {
+        fragColor = vec4(readFramebufferPixel(ivec2(pixelcoord)), 1.0);
+        return;
+    }
+
     if (char_pos.x >= CONSOLE_WIDTH || char_pos.y >= CONSOLE_HEIGHT) {
         fragColor = vec4(0.1, 0.8, 0.1, 1);
         return;

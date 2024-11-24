@@ -530,6 +530,14 @@ bool doInstruction()
                     }
                     lrScInProgress = 0u;
                     break;
+                case 0x210u: // amoxor
+                {
+                    uint addr = getReg(rs1);
+                    uint val = readMemWord(addr);
+                    writeMemWord(addr, val ^ getReg(rs2));
+                    setReg(rd, val);
+                    break;
+                }
                 case 0x220u: // amoor
                 {
                     uint addr = getReg(rs1);
