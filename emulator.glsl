@@ -328,6 +328,31 @@ void handleMret()
     setPC(cpu.csrs[CSR_MEPC]);
 }
 
+void handleInterrupt(uint cause)
+{
+    cpu.csrs[CSR_MCAUSE] = cause;
+    cpu.csrs[CSR_MEPC] = getPC();
+    setPC(cpu.csrs[CSR_MTVEC]);
+
+    uint mstatus = cpu.csrs[CSR_MSTATUS];
+
+    // Set mstatus.mpie to mstatus.mie
+    if ((mstatus & BIT_MSTATUS_MIE) != 0u)
+        mstatus |= BIT_MSTATUS_MPIE;
+    else
+        mstatus &= ~BIT_MSTATUS_MPIE;
+
+    // Clear mstatus.mie
+    mstatus &= ~BIT_MSTATUS_MIE;
+
+    // Set mstatus.mpp to M
+    // TODO: User mode stuff
+    mstatus &= ~(3u << SHIFT_MSTATUS_MPP);
+    mstatus |= 3u << SHIFT_MSTATUS_MPP;
+
+    cpu.csrs[CSR_MSTATUS] = mstatus;
+}
+
 bool doInstruction()
 {
     uint inst = readMemWord(getPC());
@@ -685,7 +710,9 @@ bool doInstruction()
                             else
                                 writeRawByte(MEMORY_CONSOLE_OFFSET + 18u * CONSOLE_WIDTH + cpu.hwstate[SMH_LINE_OFFSET]++, char);
                         } else {
-                            errorVal(13u, op);
+                            // Kernel BUG/WARN, pass it
+                            handleInterrupt(3u);
+                            return true;
                         }
                     } else if(inst == 0x10500073u) {
                         // WFI
@@ -818,20 +845,6 @@ void writeCPUState()
 
     for(uint r = 0u; r < HW_REGS_COUNT; r++, ptr += 4u)
         writeRawWord(ptr, cpu.hwstate[r]);
-}
-
-void handleInterrupt(uint cause)
-{
-    cpu.csrs[CSR_MCAUSE] = cause;
-    cpu.csrs[CSR_MEPC] = getPC();
-    setPC(cpu.csrs[CSR_MTVEC]);
-
-    // Move mstatus.mie to mstatus.mpie and set mstatus.mpp
-    cpu.csrs[CSR_MSTATUS] &= ~((3u << SHIFT_MSTATUS_MPP) | BIT_MSTATUS_MIE);
-    // TODO: User mode stuff
-    cpu.csrs[CSR_MSTATUS] |= 3u << SHIFT_MSTATUS_MPP;
-    // If we end up here, MIE was previously set
-    cpu.csrs[CSR_MSTATUS] |= BIT_MSTATUS_MPIE;
 }
 
 void main()
