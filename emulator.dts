@@ -38,6 +38,16 @@
 			interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
 			reg = <0xF0000000 0x10000>;
 		};
+
+		/* DTB is at 0x1000. Use 0x3000 to align with the memory texture. */
+		framebuffer0: framebuffer@3000 {
+			compatible = "simple-framebuffer";
+			reg = <0x3000 0x12C000>;
+			width = <640>;
+			height = <480>;
+			stride = <8192>;
+			format = "x8r8g8b8";
+		};
 	};
 
 	memory@0 {
@@ -49,16 +59,6 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		bootargs = "verbose debug loglevel=9 earlycon=smh console=tty";
-
-		framebuffer0: framebuffer@1000 {
-			status = "okay";
-			compatible = "simple-framebuffer";
-			reg = <0xA00000 0x5A0000>;
-			width = <1280>;
-			height = <720>;
-			stride = <2048>;
-			format = "a8r8g8b8";
-		};
+		bootargs = "debug loglevel=9 earlycon=smh console=tty keep_bootcon";
 	};
 };

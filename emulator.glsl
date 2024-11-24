@@ -605,6 +605,10 @@ bool doInstruction()
                 case 0x600u: // or
                     setReg(rd, getReg(rs1) | getReg(rs2));
                     break;
+                case 0x601u: // rem
+                    // TODO: Signedness correct?
+                    setReg(rd, uint(int(getReg(rs1)) % int(getReg(rs2))));
+                    break;
                 case 0x700u: // and
                     setReg(rd, getReg(rs1) & getReg(rs2));
                     break;
@@ -865,7 +869,7 @@ void main()
         cpu.hwstate[CLINT_TIMER_VALL]++;
 
         // Check for interrupts
-        if(cpu.hwstate[CLINT_TIMER_CMPL] == cpu.hwstate[CLINT_TIMER_VALL])
+        if(cpu.hwstate[CLINT_TIMER_VALL] >= cpu.hwstate[CLINT_TIMER_CMPL])
             cpu.csrs[CSR_MIP] |= BIT_MIE_TIE;
 
         if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u)
