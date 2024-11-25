@@ -113,7 +113,8 @@ void errorVal(uint code, uint value)
 #define CLINT_TIMER_VALH 2u
 #define CLINT_TIMER_CMPL 3u
 #define CLINT_TIMER_CMPH 4u
-#define HW_REGS_COUNT 5u
+#define CPU_MODE 5u
+#define HW_REGS_COUNT 6u
 
 struct {
     uint pc;
@@ -124,7 +125,7 @@ struct {
 
 uint readMemWord(uint addr)
 {
-    if (addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x1000u && addr < MEMORY_RAM_SIZE)
         return readRawWord(addr + MEMORY_RAM_OFFSET);
     else if (addr == 0xF000BFF8u)
         return cpu.hwstate[CLINT_TIMER_VALL];
@@ -138,7 +139,7 @@ uint readMemWord(uint addr)
 
 uint readMemHalf(uint addr)
 {
-    if (addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
         return readRawHalf(addr + MEMORY_RAM_OFFSET);
     else {
         errorVal(15u, addr);
@@ -148,7 +149,7 @@ uint readMemHalf(uint addr)
 
 uint readMemByte(uint addr)
 {
-    if (addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
         return readRawByte(addr + MEMORY_RAM_OFFSET);
     else {
         errorVal(16u, addr);
@@ -158,7 +159,7 @@ uint readMemByte(uint addr)
 
 void writeMemWord(uint addr, uint value)
 {
-    if (addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
         writeRawWord(addr + MEMORY_RAM_OFFSET, value);
     else if (addr == 0xF0004000u) {
         cpu.hwstate[CLINT_TIMER_CMPL] = value;
@@ -172,7 +173,7 @@ void writeMemWord(uint addr, uint value)
 
 void writeMemHalf(uint addr, uint value)
 {
-    if (addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
         writeRawHalf(addr + MEMORY_RAM_OFFSET, value);
     else
         errorVal(18u, addr);
@@ -180,7 +181,7 @@ void writeMemHalf(uint addr, uint value)
 
 void writeMemByte(uint addr, uint value)
 {
-    if (addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
         writeRawByte(addr + MEMORY_RAM_OFFSET, value);
     else
         errorVal(19u, addr);
@@ -310,7 +311,31 @@ void setCSR(uint csr, uint value)
     }
 }
 
-uint lrScInProgress = 0u;
+void handleInterrupt(uint cause)
+{
+    cpu.csrs[CSR_MCAUSE] = cause;
+    cpu.csrs[CSR_MEPC] = getPC();
+    cpu.csrs[CSR_MTVAL] = 0u;
+
+    uint mstatus = cpu.csrs[CSR_MSTATUS];
+
+    // Set mstatus.mpie to mstatus.mie
+    if ((mstatus & BIT_MSTATUS_MIE) != 0u)
+        mstatus |= BIT_MSTATUS_MPIE;
+    else
+        mstatus &= ~BIT_MSTATUS_MPIE;
+
+    // Clear mstatus.mie
+    mstatus &= ~BIT_MSTATUS_MIE;
+
+    // Set mstatus.mpp to the current mode
+    mstatus &= ~(3u << SHIFT_MSTATUS_MPP);
+    mstatus |= cpu.hwstate[CPU_MODE] << SHIFT_MSTATUS_MPP;
+
+    cpu.csrs[CSR_MSTATUS] = mstatus;
+    setPC(cpu.csrs[CSR_MTVEC]);
+    cpu.hwstate[CPU_MODE] = 3u;
+}
 
 void handleMret()
 {
@@ -324,8 +349,10 @@ void handleMret()
 
     // Go into mstatus.mpp mode
     uint newpriv = (mstatus >> SHIFT_MSTATUS_MPP) & 3u;
-    if (newpriv != 3u)
-        errorVal(21u, newpriv);
+    if (newpriv == 0u || newpriv == 3u)
+        cpu.hwstate[CPU_MODE] = newpriv;
+    else
+        errorVal(23u, newpriv);
 
     // Set mstatus.mpp to U
     mstatus &= ~(3u << SHIFT_MSTATUS_MPP);
@@ -334,30 +361,7 @@ void handleMret()
     setPC(cpu.csrs[CSR_MEPC]);
 }
 
-void handleInterrupt(uint cause)
-{
-    cpu.csrs[CSR_MCAUSE] = cause;
-    cpu.csrs[CSR_MEPC] = getPC();
-    setPC(cpu.csrs[CSR_MTVEC]);
-
-    uint mstatus = cpu.csrs[CSR_MSTATUS];
-
-    // Set mstatus.mpie to mstatus.mie
-    if ((mstatus & BIT_MSTATUS_MIE) != 0u)
-        mstatus |= BIT_MSTATUS_MPIE;
-    else
-        mstatus &= ~BIT_MSTATUS_MPIE;
-
-    // Clear mstatus.mie
-    mstatus &= ~BIT_MSTATUS_MIE;
-
-    // Set mstatus.mpp to M
-    // TODO: User mode stuff
-    mstatus &= ~(3u << SHIFT_MSTATUS_MPP);
-    mstatus |= 3u << SHIFT_MSTATUS_MPP;
-
-    cpu.csrs[CSR_MSTATUS] = mstatus;
-}
+uint lrScInProgress = 0u;
 
 bool doInstruction()
 {
@@ -723,8 +727,12 @@ bool doInstruction()
             {
                 case 0u: // Misc stuff
                 {
-                    if(inst == 0x00100073u) // EBREAK
-                    {
+                    if(inst == 0x00000073u) {
+                        // ECALL
+                        handleInterrupt(8u + cpu.hwstate[CPU_MODE]);
+                        return true;
+                    } else if(inst == 0x00100073u) {
+                        // EBREAK
                         uint op = getReg(10u);
                         if (op == 3u) {
                             // smh putc
@@ -891,6 +899,11 @@ void main()
 
     readCPUState();
 
+    // Init CPU in machine mode
+    if (cpu.pc == 0x400000u) {
+        cpu.hwstate[CPU_MODE] = 3u;
+    }
+
     for(uint ticks = 128u; ticks > 0u; --ticks)
     {
         // Run 512 instructions in between ticks
@@ -908,7 +921,7 @@ void main()
         if(cpu.hwstate[CLINT_TIMER_VALL] >= cpu.hwstate[CLINT_TIMER_CMPL])
             cpu.csrs[CSR_MIP] |= BIT_MIE_TIE;
 
-        if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u)
+        if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u || cpu.csrs[CPU_MODE] < 3u)
         {
             uint ipend = cpu.csrs[CSR_MIP] & cpu.csrs[CSR_MIE];
             if(ipend == BIT_MIE_TIE)
