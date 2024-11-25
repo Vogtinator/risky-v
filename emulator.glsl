@@ -507,8 +507,7 @@ bool doInstruction()
                     // TODO: Is this correct? Several docs disagree...
                     uint addr = getReg(rs1);
                     uint val = readMemWord(addr);
-                    uint regval = getReg(rs2);
-                    writeMemWord(addr, regval);
+                    writeMemWord(addr, getReg(rs2));
                     setReg(rd, val);
                     break;
                 }
