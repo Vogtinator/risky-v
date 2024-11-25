@@ -158,9 +158,11 @@ void writeMemWord(uint addr, uint value)
 {
     if (addr < MEMORY_RAM_SIZE)
         writeRawWord(addr + MEMORY_RAM_OFFSET, value);
-    else if (addr == 0xF0004000u)
+    else if (addr == 0xF0004000u) {
         cpu.hwstate[CLINT_TIMER_CMPL] = value;
-    else if (addr == 0xF0004004u)
+        // Writing clears the pending interrupt
+        cpu.csrs[CSR_MIP] &= ~BIT_MIE_TIE;
+    } else if (addr == 0xF0004004u)
         cpu.hwstate[CLINT_TIMER_CMPH] = value;
     else
         errorVal(17u, addr);
@@ -714,6 +716,7 @@ bool doInstruction()
         case 0x73u: // SYSTEM
         {
             uint funct3 = (inst >> 12u) & 0x7u;
+            bool nexttick = false;
             switch(funct3)
             {
                 case 0u: // Misc stuff
@@ -736,11 +739,11 @@ bool doInstruction()
                     } else if(inst == 0x10500073u) {
                         // WFI
                         // TODO: Forward until next interrupt?
-                        break;
+                        nexttick = true;
                     } else if(inst == 0x30200073u) {
                         // MRET
                         handleMret();
-                        return true;
+                        return false;
                     } else {
                         errorVal(14u, inst);
                     }
@@ -756,6 +759,7 @@ bool doInstruction()
                         setReg(rd, getCSR(csr));
                     }
                     setCSR(csr, rs1val);
+                    nexttick = true;
                     break;
                 }
                 case 2u: // CSRRS
@@ -767,6 +771,7 @@ bool doInstruction()
                     uint rs1val = getReg(rs1);
                     setReg(rd, getCSR(csr));
                     setCSR(csr, csrval | rs1val);
+                    nexttick = true;
                     break;
                 }
                 case 3u: // CSRRC
@@ -789,6 +794,7 @@ bool doInstruction()
                     }
                     uint imm = (inst >> 15u) & 31u;
                     setCSR(csr, imm);
+                    nexttick = true;
                     break;
                 }
                 case 6u: // CSRRSI
@@ -799,6 +805,7 @@ bool doInstruction()
                     uint csrval = getCSR(csr);
                     setReg(rd, csrval);
                     setCSR(csr, csrval | imm);
+                    nexttick = true;
                     break;
                 }
                 case 7u: // CSRRCI
@@ -816,11 +823,15 @@ bool doInstruction()
                     return false;
             }
 
-            // Immediately check for interrupts
-            // TODO: Only do this on WFI and if writing to mstatus
-            // TODO: Actually only check for interrupts, don't just tick
-            cpu.pc += 4u;
-            return false;
+            if (nexttick) {
+                // Immediately check for interrupts
+                // TODO: Only do this on WFI and if writing to mstatus
+                // TODO: Actually only check for interrupts, don't just tick
+                cpu.pc += 4u;
+                return false;
+            }
+
+            break;
         }
         default:
             errorVal(1u, inst);
@@ -880,10 +891,13 @@ void main()
 
     for(uint ticks = 128u; ticks > 0u; --ticks)
     {
-        // Run 64 instructions in between timer ticks
-        for(uint cycles = 64u; cycles > 0u; --cycles)
-            if (!doInstruction())
+        // Run 512 instructions in between ticks
+        for(uint cycles = 512u; cycles > 0u; --cycles)
+            if(!doInstruction())
                 break;
+
+        if (stop)
+            break;
 
         // TODO: Handle VALH and CMPH
         cpu.hwstate[CLINT_TIMER_VALL]++;

@@ -9,7 +9,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		/* 128 ticks per frame * 60 fps = 7680 ticks per second */
-		timebase-frequency = <1000000>;
+		timebase-frequency = <7680>;
 
 		cpu@0 {
 			reg = <0>;

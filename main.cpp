@@ -101,7 +101,7 @@ try {
     checkCall();
     GLint uniformConsoleMemory = glGetUniformLocation(programConsole, "memory");
     checkCall();
-    std::print("Font at {} memory at {}\n", uniformFont, uniformFont);
+    std::print("Font at {} memory at {}\n", uniformFont, uniformConsoleMemory);
 
     GLint programEmulator = createProgram(loadFile("vertex.glsl"), loadFile("emulator.glsl"));
     GLint uniformEmuMemory = glGetUniformLocation(programEmulator, "memory");
