@@ -125,7 +125,7 @@ try {
     GLuint textureMemory = 0;
     glGenTextures(1, &textureMemory);
     checkCall();
-    const GLint memWidth = 2048, memHeight = 2048;
+    const GLint memWidth = 2048, memHeight = 4096;
     {
         auto memContent = loadFile("mem.rgba");
         if (memContent.size() != memWidth * memHeight * sizeof(GLuint))

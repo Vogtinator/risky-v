@@ -7,7 +7,7 @@ precision highp uimage2D;
 // Width of the memory texture
 #define MEMORY_STRIDE 2048u
 // Size of the memory texture contents
-#define MEMORY_SIZE_BYTES (MEMORY_STRIDE*2048u*4u)
+#define MEMORY_SIZE_BYTES (MEMORY_STRIDE*4096u*4u)
 // Offset of various structures within the memory texture
 #define MEMORY_CPU_OFFSET 0u
 #define MEMORY_CONSOLE_OFFSET 0x400u
