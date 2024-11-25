@@ -1,1 +1,58 @@
-consolefont.png: https://lucide.github.io/Font-Atlas-Generator/ Using Classic Console, 3072x18px, 307 cells per row, 12x18px cells, font size 14pt with x4 supersampling and smoothing.
+RISKY-V: RISC-V System Emulator running on your GPU
+==
+
+RISKY-V emulates a RISC-V system using OpenGL ES 3.1 the emulator itself is written in GLSL and runs on the GPU as a fragment shader!
+
+Only M-mode and U-mode are implemented and by default 32MiB of memory are available to the VM.
+
+Build and run it
+--
+
+Build a Linux kernel for riscv32 nommu. Important config options:
+
+```
+CONFIG_32BIT=y
+CONFIG_RISCV_M_MODE=y
+CONFIG_SERIAL_EARLYCON_SEMIHOST=y
+CONFIG_FB_SIMPLE=y
+CONFIG_VT_CONSOLE=y
+```
+
+It also requires `CONFIG_PAGE_OFFSET=0x00400000`, but for some reason that's hardcoded in Kconfig and needs a patch:
+
+```diff
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index ff1e353b0d6f..7c07151cfed2 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -285,7 +285,7 @@ config MMU
+ 
+ config PAGE_OFFSET
+        hex
+-       default 0x80000000 if !MMU && RISCV_M_MODE
++       default 0x00400000 if !MMU && RISCV_M_MODE
+        default 0x80200000 if !MMU
+        default 0xc0000000 if 32BIT
+        default 0xff60000000000000 if 64BIT
+```
+
+Build the kernel:
+
+```
+make -j8 ARCH=riscv CC="clang -target riscv32" HOSTCC=clang HOSTCXX=clang++ LD=ld
+```
+
+Link or copy the resulting `arch/riscv/boot/Image` into the risky-v directory.
+
+Run `make` to generate resource files and build the main executable, then run `./main`.
+
+How it works
+--
+TODO.
+
+External Resources
+--
+
+consolefont.png: https://lucide.github.io/Font-Atlas-Generator/ Using Classic Console, 3072x18px, 256 cells per row, 12x18px cells, font size 14pt.
+
+glad.c/glad.h/khrplatform.h: Generated from https://glad.dav1d.de. gles2 3.1 with all available extensions.
