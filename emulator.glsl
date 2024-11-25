@@ -11,7 +11,9 @@ precision highp uimage2D;
 // Offset of various structures within the memory texture
 #define MEMORY_CPU_OFFSET 0u
 #define MEMORY_CONSOLE_OFFSET 0x400u
-#define MEMORY_RAM_OFFSET 0x1000u
+// The guest memory view starts at 0, interal structures until 0x1000 are
+// marked as reserved in the DT.
+#define MEMORY_RAM_OFFSET 0u
 #define MEMORY_RAM_SIZE (MEMORY_SIZE_BYTES-MEMORY_RAM_OFFSET)
 uniform layout(r32ui) uimage2D memory;
 

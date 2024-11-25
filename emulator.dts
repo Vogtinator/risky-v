@@ -39,10 +39,10 @@
 			reg = <0xF0000000 0x10000>;
 		};
 
-		/* DTB is at 0x1000. Use 0x3000 to align with the memory texture. */
-		framebuffer0: framebuffer@3000 {
+		/* DTB is at 0x2000. Use 0x4000 to align with the memory texture. */
+		framebuffer0: framebuffer@4000 {
 			compatible = "simple-framebuffer";
-			reg = <0x3000 0x12C000>;
+			reg = <0x4000 0x12C000>;
 			width = <640>;
 			height = <480>;
 			stride = <8192>;
@@ -52,7 +52,8 @@
 
 	memory@0 {
 		device_type = "memory";
-		reg = <0 0xFFF000>;
+		/* Until 0x1000 is private emulator state. */
+		reg = <0x1000 0xFFF000>;
 	};
 
 	chosen {
