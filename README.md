@@ -16,7 +16,12 @@ CONFIG_RISCV_M_MODE=y
 CONFIG_SERIAL_EARLYCON_SEMIHOST=y
 CONFIG_FB_SIMPLE=y
 CONFIG_VT_CONSOLE=y
+CONFIG_RISCV_SLOW_UNALIGNED_ACCESS=y
+CONFIG_GPIO_GENERIC_PLATFORM=y
+CONFIG_KEYBOARD_GPIO_POLLED=y
 ```
+
+You can build an initramfs of your choice and embed it into the kernel build.
 
 It also requires `CONFIG_PAGE_OFFSET=0x00400000`, but for some reason that's hardcoded in Kconfig and needs a patch:
 
