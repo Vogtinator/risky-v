@@ -15,9 +15,14 @@ precision highp uimage2D;
 // marked as reserved in the DT.
 #define MEMORY_RAM_OFFSET 0u
 #define MEMORY_RAM_SIZE (MEMORY_SIZE_BYTES-MEMORY_RAM_OFFSET)
+// Four words (128bit) with raw scancode -> pressed mapping
+#define MEMORY_KEYBOARD_OFFSET 0x200u
 uniform layout(r32ui) uimage2D memory;
 
 #define CONSOLE_WIDTH 40u
+
+// 0 => no event, scancode => pressed, -scancode => released
+uniform int keyEvent;
 
 // Read and write words in the memory image. Address in bytes, must be word aligned.
 uint readRawWord(uint addr)
@@ -125,7 +130,7 @@ struct {
 
 uint readMemWord(uint addr)
 {
-    if (addr >= 0x1000u && addr < MEMORY_RAM_SIZE)
+    if ((addr & 3u) == 0u && addr >= 0x200u && addr < MEMORY_RAM_SIZE)
         return readRawWord(addr + MEMORY_RAM_OFFSET);
     else if (addr == 0xF000BFF8u)
         return cpu.hwstate[CLINT_TIMER_VALL];
@@ -139,7 +144,7 @@ uint readMemWord(uint addr)
 
 uint readMemHalf(uint addr)
 {
-    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
+    if ((addr & 1u) == 0u && addr >= 0x200u &&addr < MEMORY_RAM_SIZE)
         return readRawHalf(addr + MEMORY_RAM_OFFSET);
     else {
         errorVal(15u, addr);
@@ -149,7 +154,7 @@ uint readMemHalf(uint addr)
 
 uint readMemByte(uint addr)
 {
-    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x200u && addr < MEMORY_RAM_SIZE)
         return readRawByte(addr + MEMORY_RAM_OFFSET);
     else {
         errorVal(16u, addr);
@@ -159,7 +164,7 @@ uint readMemByte(uint addr)
 
 void writeMemWord(uint addr, uint value)
 {
-    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
+    if ((addr & 3u) == 0u && addr >= 0x200u && addr < MEMORY_RAM_SIZE)
         writeRawWord(addr + MEMORY_RAM_OFFSET, value);
     else if (addr == 0xF0004000u) {
         cpu.hwstate[CLINT_TIMER_CMPL] = value;
@@ -173,7 +178,7 @@ void writeMemWord(uint addr, uint value)
 
 void writeMemHalf(uint addr, uint value)
 {
-    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
+    if ((addr & 1u) == 0u && addr >= 0x200u &&addr < MEMORY_RAM_SIZE)
         writeRawHalf(addr + MEMORY_RAM_OFFSET, value);
     else
         errorVal(18u, addr);
@@ -181,7 +186,7 @@ void writeMemHalf(uint addr, uint value)
 
 void writeMemByte(uint addr, uint value)
 {
-    if (addr >= 0x1000u &&addr < MEMORY_RAM_SIZE)
+    if (addr >= 0x200u && addr < MEMORY_RAM_SIZE)
         writeRawByte(addr + MEMORY_RAM_OFFSET, value);
     else
         errorVal(19u, addr);
@@ -902,6 +907,17 @@ void main()
     // Init CPU in machine mode
     if (cpu.pc == 0x400000u) {
         cpu.hwstate[CPU_MODE] = 3u;
+    }
+
+    // Handle a possible keyboard event
+    if (keyEvent > 0) {
+        uint scancode = uint(keyEvent);
+        uint addr = MEMORY_KEYBOARD_OFFSET + ((scancode / 32u) << 2u);
+        writeRawWord(addr, readRawWord(addr) | (1u << (scancode & 31u)));
+    } else if (keyEvent < 0) {
+        uint scancode = uint(-keyEvent);
+        uint addr = MEMORY_KEYBOARD_OFFSET + ((scancode / 32u) << 2u);
+        writeRawWord(addr, readRawWord(addr) & ~(1u << (scancode & 31u)));
     }
 
     for(uint ticks = 128u; ticks > 0u; --ticks)

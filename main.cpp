@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_NONE 1
 #include <GLFW/glfw3.h>
 #include <string>
+#include <deque>
 #include <vector>
 #include <format>
 #include <print>
@@ -71,6 +72,20 @@ void checkCall()
         throw std::runtime_error(std::format("Got error {}", err));
 }
 
+static std::deque<GLint> keyEventQueue;
+
+void keyEventCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    std::print("Got event: {} {} ({})\n", action, scancode, char(key));
+
+    if (scancode >= 128)
+        ; // not supported
+    else if (action == GLFW_PRESS)
+        keyEventQueue.push_back(scancode);
+    else if (action == GLFW_RELEASE)
+        keyEventQueue.push_back(-scancode);
+}
+
 int main(int argc, char *argv[])
 try {
     GLFWwindow* window;
@@ -94,6 +109,8 @@ try {
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
 
+    glfwSetKeyCallback(window, keyEventCallback);
+
     gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress);
 
     GLint programConsole = createProgram(loadFile("vertex.glsl"), loadFile("console.glsl"));
@@ -106,7 +123,8 @@ try {
     GLint programEmulator = createProgram(loadFile("vertex.glsl"), loadFile("emulator.glsl"));
     GLint uniformEmuMemory = glGetUniformLocation(programEmulator, "memory");
     checkCall();
-    std::print("Emulator memory at {}\n", uniformEmuMemory);
+    GLint uniformEmuKeyEvent = glGetUniformLocation(programEmulator, "keyEvent");
+    std::print("Emulator memory at {}, keyEvent at {}\n", uniformEmuMemory, uniformEmuKeyEvent);
 
     // Create the console font texture
     GLuint textureFont = 0;
@@ -193,6 +211,14 @@ try {
         // Run the emulator
         glUseProgram(programEmulator);
         checkCall();
+
+        if (keyEventQueue.empty())
+            glUniform1i(uniformEmuKeyEvent, 0);
+        else {
+            glUniform1i(uniformEmuKeyEvent, keyEventQueue.front());
+            std::print("Sent event: {}\n", keyEventQueue.front());
+            keyEventQueue.pop_front();
+        }
 
         glBindImageTexture(uniformEmuMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
         checkCall();
