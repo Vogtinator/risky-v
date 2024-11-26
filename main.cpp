@@ -76,8 +76,6 @@ static std::deque<GLint> keyEventQueue;
 
 void keyEventCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    std::print("Got event: {} {} ({})\n", action, scancode, char(key));
-
     if (scancode >= 128)
         ; // not supported
     else if (action == GLFW_PRESS)
@@ -216,7 +214,6 @@ try {
             glUniform1i(uniformEmuKeyEvent, 0);
         else {
             glUniform1i(uniformEmuKeyEvent, keyEventQueue.front());
-            std::print("Sent event: {}\n", keyEventQueue.front());
             keyEventQueue.pop_front();
         }
 
