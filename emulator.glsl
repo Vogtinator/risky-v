@@ -387,8 +387,8 @@ bool doInstruction()
             int imm = int(inst) >> 20u;
             switch (funct3)
             {
-                case 0u: // lh
-                    setReg(rd, readMemByte(uint(int(getReg(rs1)) + imm)));
+                case 0u: // lb
+                    setReg(rd, uint(int(readMemByte(uint(int(getReg(rs1)) + imm)) << 24u) >> 24u));
                     break;
                 case 1u: // lh
                     setReg(rd, uint(int(readMemHalf(uint(int(getReg(rs1)) + imm)) << 16u) >> 16u));
