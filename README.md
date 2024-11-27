@@ -6,7 +6,11 @@ RISKY-V emulates a RISC-V system using OpenGL ES 3.1 the emulator itself is writ
 What it can do
 --
 
-M-mode and U-mode are implemented and by default 32MiB of memory are available to the VM. A 640x480px framebuffer is provided as output and 
+M-mode and U-mode are implemented and by default 32MiB of memory are available to the VM. A 640x480px framebuffer is provided as output and keyboard buttons are passed through as GPIO.
+
+It can boot Linux and run some programs! You do need some patience.
+
+[Bildschirmaufnahme_20241127_133315.webm](https://github.com/user-attachments/assets/97839ddf-15c8-4901-8f37-bd4d68c9addd)
 
 What it can't do
 --
