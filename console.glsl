@@ -25,6 +25,8 @@ uniform layout(r32ui) uimage2D memory;
 uvec2 char_size = uvec2(CHAR_WIDTH, CHAR_HEIGHT);
 uniform sampler2D font;
 
+uniform bool showFramebuffer;
+
 layout(location = 0) out vec4 fragColor;
 
 uint readByteRaw(uint addr)
@@ -50,7 +52,7 @@ void main()
     // Which position in the letter grid
     uvec2 char_pos = uvec2(pixelcoord) / char_size;
 
-    if (char_pos.y != 18u) {
+    if (showFramebuffer) {
         fragColor = vec4(readFramebufferPixel(ivec2(pixelcoord)), 1.0);
         return;
     }

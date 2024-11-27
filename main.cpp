@@ -72,11 +72,14 @@ void checkCall()
         throw std::runtime_error(std::format("Got error {}", err));
 }
 
+static bool showFramebuffer = true;
 static std::deque<GLint> keyEventQueue;
 
 void keyEventCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if (scancode >= 128)
+    if (action == GLFW_PRESS && key == GLFW_KEY_F11)
+        showFramebuffer = !showFramebuffer;
+    else if (scancode >= 128)
         ; // not supported
     else if (action == GLFW_PRESS)
         keyEventQueue.push_back(scancode);
@@ -116,7 +119,8 @@ try {
     checkCall();
     GLint uniformConsoleMemory = glGetUniformLocation(programConsole, "memory");
     checkCall();
-    std::print("Font at {} memory at {}\n", uniformFont, uniformConsoleMemory);
+    GLboolean uniformConsoleShowFramebuffer = glGetUniformLocation(programConsole, "showFramebuffer");
+    std::print("Font at {}, memory at {}, showFramebuffer at {}\n", uniformFont, uniformConsoleMemory, uniformConsoleShowFramebuffer);
 
     GLint programEmulator = createProgram(loadFile("vertex.glsl"), loadFile("emulator.glsl"));
     GLint uniformEmuMemory = glGetUniformLocation(programEmulator, "memory");
@@ -233,6 +237,9 @@ try {
         checkCall();
 
         glBindImageTexture(uniformConsoleMemory, textureMemory, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+        checkCall();
+
+        glUniform1i(uniformConsoleShowFramebuffer, showFramebuffer);
         checkCall();
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indices);
