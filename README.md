@@ -35,7 +35,7 @@ CONFIG_GPIO_GENERIC_PLATFORM=y
 CONFIG_KEYBOARD_GPIO_POLLED=y
 ```
 
-You can build an initramfs of your choice and embed it into the kernel build.
+You can build an initramfs of your choice and embed it into the kernel build. If using buildroot, run `make uclibc-menuconfig` and set `PTHREADS_STACK_DEFAULT_SIZE` to something like 256k instead of the default 2MiB, otherwise some programs run out of memory.
 
 It also requires `CONFIG_PAGE_OFFSET=0x00400000`, but for some reason that's hardcoded in Kconfig and needs a patch:
 
