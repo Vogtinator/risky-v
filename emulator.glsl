@@ -366,6 +366,18 @@ void handleMret()
     setPC(cpu.csrs[CSR_MEPC]);
 }
 
+void handlePendingInterrupts()
+{
+    if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u || cpu.csrs[CPU_MODE] < 3u)
+    {
+        uint ipend = cpu.csrs[CSR_MIP] & cpu.csrs[CSR_MIE];
+        if((ipend & BIT_MIE_TIE) != 0u)
+            handleInterrupt(0x80000007u); // IRQ 7
+        else if (ipend != 0u)
+            errorVal(20u, ipend);
+    }
+}
+
 uint lrScInProgress = 0u;
 
 bool doInstruction()
@@ -727,7 +739,6 @@ bool doInstruction()
         case 0x73u: // SYSTEM
         {
             uint funct3 = (inst >> 12u) & 0x7u;
-            bool nexttick = false;
             switch(funct3)
             {
                 case 0u: // Misc stuff
@@ -753,8 +764,12 @@ bool doInstruction()
                         }
                     } else if(inst == 0x10500073u) {
                         // WFI
-                        // TODO: Forward until next interrupt?
-                        nexttick = true;
+                        // TODO: Mask CSR_MIE?
+                        if (cpu.csrs[CSR_MIP] != 0u)
+                            cpu.pc += 4u;
+
+                        // Immediately do a tick and check for interrupts
+                        return false;
                     } else if(inst == 0x30200073u) {
                         // MRET
                         handleMret();
@@ -774,7 +789,6 @@ bool doInstruction()
                         setReg(rd, getCSR(csr));
                     }
                     setCSR(csr, rs1val);
-                    nexttick = true;
                     break;
                 }
                 case 2u: // CSRRS
@@ -786,7 +800,6 @@ bool doInstruction()
                     uint rs1val = getReg(rs1);
                     setReg(rd, getCSR(csr));
                     setCSR(csr, csrval | rs1val);
-                    nexttick = true;
                     break;
                 }
                 case 3u: // CSRRC
@@ -809,7 +822,6 @@ bool doInstruction()
                     }
                     uint imm = (inst >> 15u) & 31u;
                     setCSR(csr, imm);
-                    nexttick = true;
                     break;
                 }
                 case 6u: // CSRRSI
@@ -820,7 +832,6 @@ bool doInstruction()
                     uint csrval = getCSR(csr);
                     setReg(rd, csrval);
                     setCSR(csr, csrval | imm);
-                    nexttick = true;
                     break;
                 }
                 case 7u: // CSRRCI
@@ -838,15 +849,10 @@ bool doInstruction()
                     return false;
             }
 
-            if (nexttick) {
-                // Immediately check for interrupts
-                // TODO: Only do this on WFI and if writing to mstatus
-                // TODO: Actually only check for interrupts, don't just tick
-                cpu.pc += 4u;
-                return false;
-            }
-
-            break;
+            // Immediately check for interrupts
+            cpu.pc += 4u;
+            handlePendingInterrupts();
+            return true;
         }
         default:
             errorVal(1u, inst);
@@ -937,16 +943,7 @@ void main()
         if(cpu.hwstate[CLINT_TIMER_VALL] >= cpu.hwstate[CLINT_TIMER_CMPL])
             cpu.csrs[CSR_MIP] |= BIT_MIE_TIE;
 
-        if((cpu.csrs[CSR_MSTATUS] & BIT_MSTATUS_MIE) != 0u || cpu.csrs[CPU_MODE] < 3u)
-        {
-            uint ipend = cpu.csrs[CSR_MIP] & cpu.csrs[CSR_MIE];
-            if(ipend == BIT_MIE_TIE)
-                handleInterrupt(0x80000007u); // IRQ 7
-            else if (ipend != 0u) {
-                errorVal(20u, ipend);
-                break;
-            }
-        }
+        handlePendingInterrupts();
     }
 
     dumpCPUState();
