@@ -1,0 +1,122 @@
+#!/bin/sh
+newpage() {
+    # Clear console from row 7 downwards
+    echo -en "\x1b[7;1H"
+    echo -en "\x1b[J"
+}
+
+waitkey() {
+    # Sometimes the kernel does not poll the keyboard in
+    # between calls to read because it's too busy with something
+    # else (like screen drawing). Avoid that by slowing it down
+    sleep 0.1
+    read -s
+    sleep 0.1
+}
+
+# Clear console from row 6 downwards
+echo -en "\x1b[6;1H"
+echo -en "\x1b[J"
+
+bold=$(echo -en "\x1b[1m")
+underline=$(echo -en "\x1b[4m")
+reset=$(echo -en "\x1b[0m")
+
+# Title
+cat <<EOF
+${bold}${underline}RISKY-V System Emulator${reset}
+
+EOF
+
+echo "Loading logo..."
+dd if=hwlogo-resized.rgba of=/dev/fb0 bs=8192 status=none
+
+echo "Features"
+echo
+echo "- 30 fps * 128 ticks * 512 instructions each -> ~2MHz!"
+waitkey
+echo "- 32MiB RAM. ramspeed: ~5MiB/s!"
+waitkey
+echo "- Linux boots to login in 52s!"
+waitkey
+echo "- Hardware support: "
+waitkey
+echo "  * 640x480x32bpp framebuffer"
+waitkey
+echo "  * Keyboard using polled GPIOs"
+waitkey
+echo "- emulator.glsl has 952 lines, incl. comments and whitespace"
+waitkey
+echo "- 60 instructions in total (RV32ima + Zifencei + Zicsr)"
+echo
+echo "Next..."
+waitkey
+
+newpage
+
+echo "Fun facts about RISC-V"
+echo
+waitkey
+echo "- The encoding of immediates is ... special:"
+echo "  Jump offset : bit 20 | bits 10-1 | bit 11 | bits 19 - 12"
+waitkey
+echo "- HW barely does anything for you:"
+echo "  * No stack operations"
+echo "  * Interrupt/trap handling is very manual"
+echo "  * Most functionality is optional"
+waitkey
+echo "- Compressed instructions (C extension) aren't very RISC"
+echo
+echo "Next..."
+waitkey
+
+newpage
+
+echo "Fun facts about Linux"
+echo
+waitkey
+echo "- It boots pretty far, if:"
+waitkey
+echo "  * 16 bit memory writes end up somewhere random"
+waitkey
+echo "  * The sub instruction adds instead"
+waitkey
+echo "  * Atomic memory operations do nothing"
+echo
+echo "- µCLinux/NoMMU is limited:"
+waitkey
+echo "  * Can only allocate up to 4MiB unless patched"
+waitkey
+echo "  * /dev/fb0 can't be mmap'ed unless patched"
+waitkey
+echo "  * Memory below the kernel load address is not available"
+echo
+echo "Next..."
+waitkey
+
+newpage
+echo "Fun facts about Userspace"
+echo
+waitkey
+echo "- busybox vi is broken"
+waitkey
+echo "  * Starting vi crashed the kernel /o\\"
+waitkey
+echo "  * Not an emulation bug!"
+waitkey
+echo "  * openat(AT_FDCWD, NULL, O_RDONLY), also on Tumbleweed!"
+echo
+echo "- ... does it run doom?"
+waitkey
+echo "  * No :-( prboom crashes on start."
+echo
+echo "Next..."
+waitkey
+
+newpage
+echo
+echo
+echo
+echo
+echo " Have a lot of fun!"
+waitkey
