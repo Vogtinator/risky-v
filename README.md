@@ -55,6 +55,8 @@ index ff1e353b0d6f..7c07151cfed2 100644
         default 0xff60000000000000 if 64BIT
 ```
 
+There is https://lkml.org/lkml/2024/10/26/482 pending which should fix this by making the kernel fully relocatable instead.
+
 Build the kernel:
 
 ```

@@ -78,10 +78,10 @@
 		/* DTB is at 0x2000. Use 0x4000 to align with the memory texture. */
 		framebuffer0: framebuffer@4000 {
 			compatible = "simple-framebuffer";
-			reg = <0x4000 0x12C000>;
+			reg = <0x4000 (480*2048*4)>;
 			width = <640>;
 			height = <480>;
-			stride = <8192>;
+			stride = <(2048*4)>;
 			format = "x8r8g8b8";
 		};
 	};
